@@ -65,6 +65,16 @@ export default defineConfig({
                 target: "http://localhost:5001",
                 changeOrigin: true,
             },
+            "/osrm": {
+                target: "https://router.project-osrm.org",
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/osrm/, ""),
+            },
+            "/nominatim": {
+                target: "https://nominatim.openstreetmap.org",
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/nominatim/, ""),
+            },
         },
     },
 })

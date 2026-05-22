@@ -6,6 +6,7 @@ import {
     Truck, Users, Sparkles
 } from 'lucide-react';
 import { getAllBusinessAccounts } from '../api/Account.jsx';
+import { enrichBusinessesWithGeo, mapRestaurantFromBusiness } from '../utils/businessGeo.js';
 import { getAllDishesForCustomer } from '../api/Dish.jsx';
 import { CategoryMap } from '../constants/category.jsx';
 import { resolveDishImage, resolveRestaurantImage, handleImageError } from '../utils/images.js';
@@ -51,13 +52,14 @@ const UnauthenticatedHome = () => {
 
                 if (cancelled) return;
 
+                const withGeo = await enrichBusinessesWithGeo(businesses ?? []);
                 setRestaurants(
-                    (businesses ?? []).slice(0, 6).map((r) => ({
-                        id: r.id,
-                        name: r.name,
-                        image: resolveRestaurantImage(r, r.id, r.name),
-                        description: r.description ?? 'Смачні страви з доставкою',
-                    }))
+                    withGeo.slice(0, 6).map((r) =>
+                        mapRestaurantFromBusiness({
+                            ...r,
+                            image: resolveRestaurantImage(r, r.id, r.name),
+                        })
+                    )
                 );
 
                 const mapped = (allDishes ?? []).map(mapDish);
@@ -193,7 +195,11 @@ const UnauthenticatedHome = () => {
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: index * 0.06 }}
                                 >
-                                    <Link to={ROUTES.customer.restaurant(r.id)} className="guest-restaurant-card">
+                                    <Link
+                                        to={ROUTES.customer.restaurant(r.id)}
+                                        state={{ restaurant: r }}
+                                        className="guest-restaurant-card"
+                                    >
                                         <img
                                             src={r.image}
                                             alt={r.name}

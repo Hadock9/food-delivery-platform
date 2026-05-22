@@ -5,6 +5,12 @@ import {
     ArrowLeft, Search, X, Flame, MapPin, Star, Clock,
     ShoppingCart, Plus, Check
 } from 'lucide-react';
+import DeliveryMapWidget from '../components/map/DeliveryMapWidget.jsx';
+import { useUserLocation } from '../hooks/useUserLocation.js';
+import {
+    resolveBusinessGeo,
+    businessDeliverFrom,
+} from '../utils/businessGeo.js';
 import './styles/RestaurantDetailsPage.css';
 import { getDishesForCustomerByBusinessId } from '../api/Dish.jsx';
 import { getAllBusinessAccounts } from '../api/Account.jsx';
@@ -18,7 +24,7 @@ import {
 } from '../utils/images.js';
 import { addToCart, getCartCount } from '../utils/CartStorage.jsx';
 
-const mapRestaurant = (r) => ({
+const mapRestaurant = (r, geo = null) => ({
     id: r.id,
     name: r.name,
     image: resolveRestaurantImage(r, r.id, r.name),
@@ -26,6 +32,10 @@ const mapRestaurant = (r) => ({
     rating: 4.8,
     deliveryTime: '25–40 хв',
     deliveryPrice: 'Безкоштовно від 300 ₴',
+    address: r.address ?? geo?.address ?? null,
+    latitude: geo?.latitude ?? r.latitude ?? null,
+    longitude: geo?.longitude ?? r.longitude ?? null,
+    geo: geo ?? r.geo ?? null,
 });
 
 const RestaurantDetailsPage = () => {
@@ -33,7 +43,9 @@ const RestaurantDetailsPage = () => {
     const { state } = useLocation();
     const navigate = useNavigate();
 
-    const [restaurant, setRestaurant] = useState(state?.restaurant ?? null);
+    const [restaurant, setRestaurant] = useState(
+        state?.restaurant ? mapRestaurant(state.restaurant, state.restaurant.geo) : null
+    );
     const [menu, setMenu] = useState([]);
     const [loadingRestaurant, setLoadingRestaurant] = useState(!state?.restaurant);
     const [loadingMenu, setLoadingMenu] = useState(true);
@@ -42,9 +54,14 @@ const RestaurantDetailsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [sortBy, setSortBy] = useState('popular');
-    const [userCity, setUserCity] = useState('Київ');
-    const [userAddress, setUserAddress] = useState('Хрещатик, 22');
     const [cartToast, setCartToast] = useState(null);
+    const {
+        position: userPosition,
+        status: geoStatus,
+        error: geoError,
+        retry: retryGeo,
+        isLoading: geoLoading,
+    } = useUserLocation();
     const [cartCount, setCartCount] = useState(getCartCount);
 
     const categoryRefs = useRef({});
@@ -65,7 +82,10 @@ const RestaurantDetailsPage = () => {
                     if (!cancelled) setLoadError('Заклад не знайдено');
                     return;
                 }
-                if (!cancelled) setRestaurant(mapRestaurant(found));
+                if (!cancelled) {
+                    const geo = await resolveBusinessGeo(found);
+                    setRestaurant(mapRestaurant(found, geo));
+                }
             } catch (e) {
                 console.error('Помилка завантаження закладу:', e);
                 if (!cancelled) setLoadError('Не вдалося завантажити заклад');
@@ -123,26 +143,18 @@ const RestaurantDetailsPage = () => {
     }, [restaurantId, restaurant?.name]);
 
     useEffect(() => {
-        fetch('https://ipapi.co/json/')
-            .then((res) => res.json())
-            .then((data) => {
-                if (data.city) {
-                    setUserCity(data.city);
-                    const addresses = {
-                        Київ: 'Хрещатик, 22',
-                        Львів: 'просп. Свободи, 7',
-                        Одеса: 'Дерибасівська, 10',
-                        Харків: 'вул. Сумська, 35',
-                        Дніпро: 'просп. Дмитра Яворницького, 50',
-                    };
-                    setUserAddress(addresses[data.city] || 'центр міста');
-                }
-            })
-            .catch(() => {
-                setUserCity('Київ');
-                setUserAddress('Хрещатик, 22');
-            });
-    }, []);
+        if (!restaurant?.id || restaurant.geo) return;
+        let cancelled = false;
+        resolveBusinessGeo(restaurant).then((geo) => {
+            if (cancelled || !geo) return;
+            setRestaurant((prev) =>
+                prev ? { ...prev, ...mapRestaurant(prev, geo) } : prev
+            );
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [restaurant?.id, restaurant?.geo]);
 
     const categories = useMemo(
         () => ['all', ...new Set(menu.map((d) => d.category).filter(Boolean))],
@@ -232,6 +244,7 @@ const RestaurantDetailsPage = () => {
     }
 
     const heroImage = resolveRestaurantImage(restaurant, restaurant.id, restaurant.name);
+    const venuePoint = businessDeliverFrom(restaurant);
     const menuByCategory =
         selectedCategory === 'all' && !searchQuery
             ? categories.filter((c) => c !== 'all')
@@ -275,12 +288,37 @@ const RestaurantDetailsPage = () => {
                         <div className="restaurant-location">
                             <MapPin size={18} />
                             <span>
-                                Доставка: {userAddress}, {userCity}
+                                {geoLoading && 'Визначаємо ваше місцезнаходження…'}
+                                {!geoLoading && userPosition?.fullAddress && (
+                                    <>Ви: {userPosition.fullAddress}</>
+                                )}
+                                {!geoLoading && !userPosition && geoError && (
+                                    <>{geoError}</>
+                                )}
+                                {restaurant.address && (
+                                    <> · Заклад: {restaurant.address}</>
+                                )}
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <section className="restaurant-map-section">
+                {geoStatus === 'denied' && (
+                    <button type="button" className="geo-retry-btn" onClick={retryGeo}>
+                        Увімкнути геолокацію для маршруту
+                    </button>
+                )}
+                <DeliveryMapWidget
+                    key={`${restaurant.id}-${userPosition?.latitude ?? 'no-gps'}`}
+                    deliverFrom={venuePoint}
+                    deliverTo={userPosition}
+                    routeMode="toVenue"
+                    height={360}
+                    title="Маршрут до закладу"
+                />
+            </section>
 
             <div className="sticky-header">
                 <div className="search-input-wrapper">

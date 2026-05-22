@@ -20,22 +20,21 @@
   color: #e6eef6;
 }
 
-.dmw-directions-btn {
+.dmw-route-stats {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: linear-gradient(90deg, rgba(124, 92, 255, 0.35), rgba(0, 212, 255, 0.2));
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.35);
   color: #e6eef6;
-  text-decoration: none;
   font-size: 0.875rem;
   font-weight: 600;
-  border: 1px solid rgba(124, 92, 255, 0.35);
 }
 
-.dmw-directions-btn:hover {
-  filter: brightness(1.1);
+.dmw-route-hint {
+  color: #7ee8ff !important;
 }
 
 .dmw-legend {
@@ -60,6 +59,11 @@
 .dmw-muted {
   font-size: 0.8rem;
   color: #97a0a9;
+}
+
+.dmw-error {
+  font-size: 0.85rem;
+  color: #ff8a8a;
 }
 
 .dmw-map {

@@ -18,6 +18,7 @@ import { resolveAccountRole } from "../utils/accountRole.js";
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MAP_CENTER } from '../constants/region.js';
 
 // utils localStorage
 const getCart = () => JSON.parse(localStorage.getItem("cart")) || [];
@@ -350,7 +351,7 @@ const CheckoutPage = () => {
                                                 required
                                             />
 
-                                            <MapContainer center={[50.45, 30.52]} zoom={12} className="leaflet-container">
+                                            <MapContainer center={MAP_CENTER} zoom={13} className="leaflet-container">
                                                 <TileLayer
                                                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                                     attribution="&copy; OpenStreetMap contributors"

@@ -33,6 +33,14 @@ export function normalizeBusinessAccount(raw) {
         imageUrl: raw.imageUrl ?? raw.ImageUrl ?? "",
         accountType: raw.accountType ?? raw.AccountType,
         userId: raw.userId ?? raw.UserId,
+        address:
+            raw.address ??
+            raw.Address ??
+            (Array.isArray(raw.adresses) ? raw.adresses[0] : null) ??
+            (Array.isArray(raw.addresses) ? raw.addresses[0] : null) ??
+            null,
+        latitude: raw.latitude ?? raw.Latitude ?? null,
+        longitude: raw.longitude ?? raw.Longitude ?? null,
     };
 }
 

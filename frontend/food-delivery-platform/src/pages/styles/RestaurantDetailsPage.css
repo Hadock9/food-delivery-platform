@@ -96,6 +96,50 @@
     font-weight: 500;
 }
 
+.geo-retry-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 212, 255, 0.45);
+    background: rgba(0, 212, 255, 0.12);
+    color: #e6eef6;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.geo-retry-btn:hover {
+    filter: brightness(1.1);
+}
+
+.restaurant-directions-hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(124, 92, 255, 0.9), rgba(0, 212, 255, 0.5));
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    transition: filter 0.2s, transform 0.2s;
+}
+
+.restaurant-directions-hero-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.restaurant-map-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 24px 8px;
+}
+
 /* ===== STICKY HEADER ===== */
 .sticky-header {
     position: sticky;

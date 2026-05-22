@@ -125,12 +125,38 @@
 }
 
 .restaurant-card {
+    position: relative;
     background: rgba(255,255,255,0.04);
     border-radius: 20px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.1);
     backdrop-filter: blur(10px);
     transition: all 0.4s ease;
+}
+
+.restaurant-card-directions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(10, 10, 12, 0.85);
+    border: 1px solid rgba(124, 92, 255, 0.45);
+    color: #e6eef6;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    backdrop-filter: blur(8px);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.restaurant-card-directions:hover {
+    background: rgba(124, 92, 255, 0.35);
+    transform: scale(1.03);
 }
 
 .restaurant-link {

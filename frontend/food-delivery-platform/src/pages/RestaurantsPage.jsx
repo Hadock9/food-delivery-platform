@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Search, X, Filter, ChevronRight, Star, Clock, MapPin } from 'lucide-react';
 import './styles/RestaurantsPage.css';
 import { getAllBusinessAccounts } from "../api/Account.jsx";
+import { enrichBusinessesWithGeo, mapRestaurantFromBusiness } from "../utils/businessGeo.js";
 import { resolveRestaurantImage, handleImageError } from "../utils/images.js";
 
 const RestaurantsPage = () => {
@@ -21,18 +22,15 @@ const RestaurantsPage = () => {
             try {
                 setLoadError(null);
                 const list = await getAllBusinessAccounts();
+                const withGeo = await enrichBusinessesWithGeo(list);
                 setRestaurants(
-                    list.map((r) => ({
-                        id: r.id,
-                        name: r.name,
-                        image: resolveRestaurantImage(r, r.id, r.name),
-                        imageUrl: r.imageUrl,
-                        description: r.description,
-                        rating: 4.8,
-                        deliveryTime: "25-40 хв",
-                        deliveryPrice: "Безкоштовно",
-                        category: r.description || "Ресторан",
-                    }))
+                    withGeo.map((r) =>
+                        mapRestaurantFromBusiness({
+                            ...r,
+                            image: resolveRestaurantImage(r, r.id, r.name),
+                            category: r.description || "Ресторан",
+                        })
+                    )
                 );
             } catch (e) {
                 console.error("Помилка отримання бізнес акаунтів:", e);

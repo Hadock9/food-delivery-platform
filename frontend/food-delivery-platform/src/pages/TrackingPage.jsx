@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Clock, Truck } from "lucide-react";
 import { ROUTES } from "../utils/roleRoutes.js";
 import DeliveryMapWidget from "../components/map/DeliveryMapWidget.jsx";
+import { DEFAULT_LOCATION_LABEL } from "../constants/region.js";
 import { getOrderTracking } from "../api/Tracking.jsx";
 import "./styles/TrackingPage.css";
 
@@ -93,7 +94,7 @@ const TrackingPage = () => {
 
         {!loading && !error && !data?.deliverTo && !fallbackAddress && (
           <DeliveryMapWidget
-            fallbackAddress="Київ, Україна"
+            fallbackAddress={DEFAULT_LOCATION_LABEL}
             height={320}
             title="Карта"
           />
