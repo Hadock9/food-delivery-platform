@@ -1,8 +1,9 @@
-﻿import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import "./styles/CustomerOrdersPage.css";
-import CustomerSidebar from "../components/customer-components/CustomerSidebar";
+import { ROUTES } from "../utils/roleRoutes.js";
 import OrderDetailsComponent from "../components/OrderDetailsComponent.jsx";
+import DeliveryMapWidget from "../components/map/DeliveryMapWidget.jsx";
 import { getCustomerOrders, getCustomerOrderHistory } from "../api/Order.jsx";
 import { useUser } from "../context/UserContext.jsx";
 import { resolveAccountRole } from "../utils/accountRole.js";
@@ -79,25 +80,20 @@ const CustomerOrdersPage = () => {
 
     if (!userLoading && !customerId) {
         return (
-            <div className="app-wrapper">
-                <CustomerSidebar />
-                <main className="auth-homepage customer-orders-page">
+            <main className="auth-homepage customer-orders-page">
                     <div className="no-active-orders">
                         <div className="big-icon">👤</div>
                         <h3>Потрібен акаунт клієнта</h3>
                         <p>Увійдіть або перемкніть на Customer-акаунт у профілі</p>
-                        <Link to="/profile" className="big-cta-btn">Перейти до профілю</Link>
-                        <Link to="/login" className="big-cta-btn secondary">Увійти</Link>
+                        <Link to={ROUTES.profile} className="big-cta-btn">Перейти до профілю</Link>
+                        <Link to={ROUTES.login} className="big-cta-btn secondary">Увійти</Link>
                     </div>
                 </main>
-            </div>
         );
     }
 
     return (
-        <div className="app-wrapper">
-            <CustomerSidebar />
-
+        <>
             <main className="auth-homepage customer-orders-page">
                 <div className="page-header orders-page-header">
                     <h1 className="gradient-title">Мої замовлення</h1>
@@ -147,7 +143,7 @@ const CustomerOrdersPage = () => {
                                 : "Завершені замовлення з’являться в цій вкладці"}
                         </p>
                         {activeTab === "active" && (
-                            <Link to="/" className="big-cta-btn">Замовити зараз</Link>
+                            <Link to={ROUTES.customer.root} className="big-cta-btn">Замовити зараз</Link>
                         )}
                     </div>
                 ) : (
@@ -193,11 +189,22 @@ const CustomerOrdersPage = () => {
                                         <div className="order-total-row">
                                             До сплати: <strong>{order.total} ₴</strong>
                                         </div>
+
+                                        {canTrack && activeTab === "active" && (
+                                            <div className="order-map-preview">
+                                                <DeliveryMapWidget
+                                                    fallbackAddress={order.address}
+                                                    height={200}
+                                                    compact
+                                                    title="Куди їхати"
+                                                />
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="active-order-footer">
                                         {canTrack && activeTab === "active" && (
-                                            <Link to={`/tracking/${order.id}`} className="track-btn">
+                                            <Link to={ROUTES.customer.tracking(order.id)} className="track-btn">
                                                 Відстежити
                                             </Link>
                                         )}
@@ -223,7 +230,7 @@ const CustomerOrdersPage = () => {
                     onClose={() => setSelectedOrder(null)}
                 />
             )}
-        </div>
+        </>
     );
 };
 

@@ -1,0 +1,45 @@
+.app-shell {
+    min-height: calc(100vh - 0px);
+}
+
+.app-shell--public .app-shell-main {
+    flex: 1;
+}
+
+.app-shell--customer {
+    display: flex;
+    min-height: 100vh;
+}
+
+.customer-layout-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-shell--business.bh-page {
+    min-height: 100vh;
+}
+
+.bh-main-wrap {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.bh-page--loading {
+    display: grid;
+    place-items: center;
+    min-height: 60vh;
+}
+
+@media (max-width: 768px) {
+    .app-shell--customer .customer-sidebar {
+        display: none;
+    }
+
+    .customer-layout-main .auth-homepage,
+    .customer-layout-main .main-content {
+        width: 100% !important;
+        margin-left: 0 !important;
+    }
+}

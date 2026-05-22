@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 
 const API_BASE =
     import.meta.env.VITE_USER_API_URL ||

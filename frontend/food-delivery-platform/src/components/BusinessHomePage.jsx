@@ -1,42 +1,44 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Trash2, Edit3, Filter, Grid, BarChart2, Users } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Plus, Search, Trash2, Edit3 } from "lucide-react";
 import "./styles/BusinessHomePage.css";
 import DishComponent from "./DishComponent";
-import BusinessSidebar from "./business/BusinessSidebar.jsx";    
-
-// 🟢 Імпорт API
+import { getBusinessAccountId } from "../utils/businessUserData.js";
+import { ROUTES } from "../utils/roleRoutes.js";
 import {
     getDishesByBusinessId,
     createDish,
     updateDish,
     deleteDish
 } from "../api/Dish.jsx";
-import { CategoryListUa, CategoryUa } from "../constants/category.jsx";
-import { resolveDishImage, resolveRestaurantImage, handleImageError, dishImgProps } from "../utils/images.js";
+import { CategoryListUa, CategoryUa, CategoryMap } from "../constants/category.jsx";
 
-const SIDEBAR_ITEMS = [
-    { id: "dashboard", label: "Статистика", icon: BarChart2 },
-    { id: "orders", label: "Керування замовленнями", icon: Grid },
-    { id: "dishes", label: "Керування стравами", icon: Filter },
-    { id: "staff", label: "Керування працівниками", icon: Users },
-];
+function normalizeCategory(category) {
+    if (category == null || category === "") return category;
+    if (typeof category === "number" && !Number.isNaN(category)) return category;
+    const asNum = Number(category);
+    if (!Number.isNaN(asNum) && CategoryMap[asNum] != null) return asNum;
+    const key = String(category).trim();
+    const byName = Object.entries(CategoryMap).find(
+        ([, name]) => name.toLowerCase() === key.toLowerCase()
+    );
+    return byName ? Number(byName[0]) : category;
+}
+import { resolveDishImage, handleImageError, dishImgProps } from "../utils/images.js";
 
 export default function BusinessHomePage({ userData }) {
-    const [active, setActive] = useState("dishes");
     const [dishes, setDishes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const businessId =
-        userData?.currentAccount?.id ??
-        localStorage.getItem("currentAccountId");
-    const businessName = userData.currentAccount?.name;
-    const businessLogo = resolveRestaurantImage(
-        userData.currentAccount,
-        businessId,
-        businessName
+    const businessId = getBusinessAccountId(
+        userData?.accounts,
+        userData?.currentAccount?.id
     );
-    
+
+    const activeIsBusiness =
+        String(userData?.currentAccount?.accountType ?? "").toLowerCase() === "business";
+
     const [q, setQ] = useState("");
     const [category, setCategory] = useState("all");
     const [onlyPopular, setOnlyPopular] = useState(false);
@@ -66,8 +68,9 @@ export default function BusinessHomePage({ userData }) {
                 const res = await getDishesByBusinessId(businessId);
 
                 setDishes(
-                    res.map((d) => ({
+                    (Array.isArray(res) ? res : []).map((d) => ({
                         ...d,
+                        category: normalizeCategory(d.category),
                         imageUrl: d.imageUrl ?? d.image ?? null,
                     }))
                 );
@@ -140,8 +143,9 @@ export default function BusinessHomePage({ userData }) {
         let out = dishes.slice();
 
         if (q.trim()) out = out.filter(d => d.name.toLowerCase().includes(q.toLowerCase()));
-        if (category !== "all")
-            out = out.filter(d => d.category === category);
+        if (category !== "all") {
+            out = out.filter((d) => normalizeCategory(d.category) === category);
+        }
 
         if (onlyPopular) out = out.filter(d => d.popular);
         if (sortBy === "name") out.sort((a, b) => a.name.localeCompare(b.name));
@@ -162,13 +166,16 @@ export default function BusinessHomePage({ userData }) {
     };
 
     return (
-        <div className="bh-page">
-            <BusinessSidebar userData={userData} />
-
-            {/* MAIN */}
+        <>
             <main className="bh-main">
+                {!activeIsBusiness && businessId && (
+                    <div className="bh-account-hint">
+                        Використовується бізнес-акаунт закладу. Щоб змінити активний профіль —{' '}
+                        <Link to={ROUTES.profile}>Профіль</Link>.
+                    </div>
+                )}
                 <header className="bh-top">
-                    <h1 className="bh-heading">Керування стравами</h1>
+                    <h1 className="bh-heading">Меню</h1>
 
                     <div className="bh-controls">
                         <div className="search-wrap">
@@ -177,7 +184,13 @@ export default function BusinessHomePage({ userData }) {
                         </div>
 
                         <div className="filters">
-                            <select value={category} onChange={e => setCategory(Number(e.target.value))}>
+                            <select
+                                value={category}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setCategory(v === "all" ? "all" : Number(v));
+                                }}
+                            >
                                 <option value="all">Усі категорії</option>
                                 {CategoryListUa.map(cat => (
                                     <option key={cat.id} value={cat.id}>
@@ -306,6 +319,6 @@ export default function BusinessHomePage({ userData }) {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }

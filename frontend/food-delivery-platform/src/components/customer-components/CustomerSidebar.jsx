@@ -1,37 +1,41 @@
 ﻿import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Home, ShoppingCart, Store, User, Package } from "lucide-react";
-import "../styles/CustomerHomePage.css"; // щоб стилі sidebar були доступні
+import { ROUTES } from "../../utils/roleRoutes.js";
+import "../styles/CustomerHomePage.css";
+
+const NAV = [
+    { path: ROUTES.customer.root, label: "Головна", icon: Home, end: true },
+    { path: ROUTES.customer.restaurants, label: "Заклади", icon: Store },
+    { path: ROUTES.customer.cart, label: "Кошик", icon: ShoppingCart },
+    { path: ROUTES.customer.orders, label: "Замовлення", icon: Package },
+    { path: ROUTES.profile, label: "Профіль", icon: User },
+];
 
 const CustomerSidebar = () => {
     const location = useLocation();
 
-    const isActive = (path) => location.pathname === path;
+    const isActive = (path, end) => {
+        if (end) return location.pathname === path;
+        return location.pathname === path || location.pathname.startsWith(`${path}/`);
+    };
 
     return (
         <aside className="customer-sidebar">
-            <div className="sidebar-logo">FoodEx</div>
+            <Link to={ROUTES.customer.root} className="sidebar-logo">
+                FoodEx
+            </Link>
 
             <nav className="sidebar-nav">
-                <Link to="/" className={`sidebar-item ${isActive("/") ? "active" : ""}`}>
-                    <Home size={22} /> <span>Головна</span>
-                </Link>
-
-                <Link to="/cart" className={`sidebar-item ${isActive("/cart") ? "active" : ""}`}>
-                    <ShoppingCart size={22} /> <span>Кошик</span>
-                </Link>
-
-                <Link to="/restaurants" className={`sidebar-item ${isActive("/restaurants") ? "active" : ""}`}>
-                    <Store size={22} /> <span>Заклади</span>
-                </Link>
-
-                <Link to="/customer/orders" className={`sidebar-item ${isActive("/customer/orders") ? "active" : ""}`}>
-                    <Package size={22} /> <span>Замовлення</span>
-                </Link>
-
-                <Link to="/profile" className={`sidebar-item ${isActive("/profile") ? "active" : ""}`}>
-                    <User size={22} /> <span>Профіль</span>
-                </Link>
+                {NAV.map(({ path, label, icon: Icon, end }) => (
+                    <Link
+                        key={path}
+                        to={path}
+                        className={`sidebar-item ${isActive(path, end) ? "active" : ""}`}
+                    >
+                        <Icon size={22} /> <span>{label}</span>
+                    </Link>
+                ))}
             </nav>
         </aside>
     );

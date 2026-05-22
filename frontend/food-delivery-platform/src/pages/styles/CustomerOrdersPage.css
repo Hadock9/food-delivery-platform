@@ -65,6 +65,12 @@
     font-size: 18px;
 }
 
+.order-map-preview {
+    margin-top: 16px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
 .big-cta-btn.secondary {
     margin-top: 12px;
     background: transparent;

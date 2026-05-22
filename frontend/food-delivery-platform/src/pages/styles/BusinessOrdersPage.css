@@ -1,3 +1,25 @@
+.bh-subheading {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: var(--muted-2);
+}
+
+.bh-refresh-btn {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.bh-refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .orders-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -118,7 +140,7 @@
     cursor: pointer;
 }
 
-/* ¿‰‡ÔÚË‚Ì≥ÒÚ¸ */
+/* √Ä√§√†√Ø√≤√®√¢√≠¬≥√±√≤√º */
 @media (max-width: 768px) {
     .order-footer {
         flex-direction: column;

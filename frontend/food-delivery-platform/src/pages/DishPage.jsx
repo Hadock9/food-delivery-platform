@@ -1,6 +1,7 @@
-﻿// src/pages/DishPage.jsx
+// src/pages/DishPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ROUTES } from '../utils/roleRoutes.js';
 import { motion } from 'framer-motion';
 import { Star, Clock, MapPin, ChevronLeft, Plus, Minus, Zap, MessageCircle } from 'lucide-react';
 import './styles/DishPage.css';
@@ -83,7 +84,7 @@ const DishPage = () => {
         return (
             <div className="dish-not-found">
                 <h2>Страву не знайдено</h2>
-                <Link to="/">На головну</Link>
+                <Link to={ROUTES.customer.root}>На головну</Link>
             </div>
         );
     }
@@ -110,7 +111,7 @@ const DishPage = () => {
 
                 {/* Хлібні крихти */}
                 <div className="breadcrumbs">
-                    <Link to="/">Головна</Link> → <span>{dish.category}</span> → {dish.name}
+                    <Link to={ROUTES.customer.root}>Головна</Link> → <span>{dish.category}</span> → {dish.name}
                 </div>
 
                 <div className="dish-grid">
@@ -249,7 +250,7 @@ const DishPage = () => {
                     </div>
                 </div>
 
-                <Link to="/" className="back-to-menu">
+                <Link to={ROUTES.customer.root} className="back-to-menu">
                     <ChevronLeft size={18} /> На головну
                 </Link>
             </motion.div>

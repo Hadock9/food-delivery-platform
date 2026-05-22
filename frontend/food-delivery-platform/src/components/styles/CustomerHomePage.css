@@ -44,6 +44,34 @@
     filter: blur(6px); opacity: 0.8; transform-origin: center;
 }
 
+/* Welcome */
+.customer-welcome {
+    position: relative;
+    z-index: 5;
+    text-align: left;
+    width: 100%;
+}
+.customer-welcome p {
+    margin: 8px 0 0;
+    color: var(--muted-2);
+    font-size: 15px;
+}
+.customer-welcome .gradient-title {
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+}
+.customer-load-error {
+    position: relative;
+    z-index: 5;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.35);
+    color: #ffb4b4;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
 /* Search hero */
 .search-hero { position: relative; z-index: 5; display:flex; align-items:center; gap:16px; justify-content:space-between; }
 .search-container{
@@ -270,9 +298,11 @@ button { font-family: inherit; }
         color: white;
     }
 
-/* Контент зсувається вправо, щоб не перекривався меню */
-.auth-homepage {
-    width: calc(100% - 280px) !important;
+/* Контент у layout з сайдбаром */
+.customer-layout-main .auth-homepage {
+    width: 100% !important;
+    flex: 1;
+    min-width: 0;
 }
 
 .customer-sidebar {

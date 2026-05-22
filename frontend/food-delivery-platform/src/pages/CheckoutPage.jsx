@@ -1,4 +1,4 @@
-﻿// src/pages/CheckoutPage.jsx
+// src/pages/CheckoutPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 import "./styles/CheckoutPage.css";
-import CustomerSidebar from "../components/customer-components/CustomerSidebar.jsx";
+import { ROUTES } from "../utils/roleRoutes.js";
 import { createOrders } from "../api/Order.jsx";
 import { checkPromo } from "../api/Promo.jsx";
 import { resolveDishImage, handleImageError, dishImgProps } from "../utils/images.js";
@@ -167,7 +167,7 @@ const CheckoutPage = () => {
 
         if (!customerAccountId || !GUID_RE.test(customerAccountId)) {
             alert("Увійдіть як клієнт (Customer) або перемкніть акаунт у профілі");
-            navigate("/profile");
+            navigate(ROUTES.profile);
             return;
         }
 
@@ -225,7 +225,7 @@ const CheckoutPage = () => {
 
             clearCart();
             alert("Замовлення успішно створені 🎉");
-            navigate("/customer/orders");
+            navigate(ROUTES.customer.orders);
 
         } catch (err) {
             console.error(err);
@@ -242,9 +242,7 @@ const CheckoutPage = () => {
     };
 
     return (
-        <div className="app-wrapper">
-            <CustomerSidebar />
-            <div className="checkout-page-wrapper">
+        <div className="customer-page-content checkout-page-wrapper">
                 <div className="particles">
                     {[...Array(6)].map((_, i) => (
                         <motion.div
@@ -421,16 +419,15 @@ const CheckoutPage = () => {
 
                     {/* Кнопки внизу — на одному рядку та відцентровані */}
                     <div className="bottom-links">
-                        <Link to="/" className="continue-shopping-btn">
+                        <Link to={ROUTES.customer.root} className="continue-shopping-btn">
                             Продовжити покупки
                         </Link>
-                        <Link to="/cart" className="back-to-cart">
+                        <Link to={ROUTES.customer.cart} className="back-to-cart">
                             <ArrowLeft size={20} /> Повернутись до кошика
                         </Link>
                     </div>
                 </div>
             </div>
-        </div>
     );
 };
 

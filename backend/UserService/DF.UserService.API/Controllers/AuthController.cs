@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DF.UserService.Application.Interfaces;
 using DF.UserService.Contracts.Models.Request;

@@ -1,21 +1,25 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Search, X, Filter, ChevronRight, Star, Clock, MapPin } from 'lucide-react';
 import './styles/RestaurantsPage.css';
-import CustomerSidebar from "../components/customer-components/CustomerSidebar.jsx";
 import { getAllBusinessAccounts } from "../api/Account.jsx";
+import { ROUTES } from "../utils/roleRoutes.js";
 import { resolveRestaurantImage, handleImageError } from "../utils/images.js";
 
 const RestaurantsPage = () => {
     const [restaurants, setRestaurants] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [sortBy, setSortBy] = useState('rating');
 
     useEffect(() => {
         const fetchRestaurants = async () => {
+            setLoading(true);
             try {
+                setLoadError(null);
                 const response = await getAllBusinessAccounts();
                 setRestaurants(
                     response.map(r => ({
@@ -33,6 +37,8 @@ const RestaurantsPage = () => {
                 );
             } catch (e) {
                 console.error("Помилка отримання бізнес акаунтів:", e);
+            } finally {
+                setLoading(false);
             }
         };
         fetchRestaurants();
@@ -64,10 +70,7 @@ const RestaurantsPage = () => {
     }, [searchQuery, selectedCategory, sortBy, restaurants]);
 
     return (
-        <div className="app-wrapper">
-            <CustomerSidebar />
-
-            <div className="main-content">
+            <div className="main-content customer-page-content">
                 <div className="particles">
                     {[...Array(8)].map((_, i) => (
                         <motion.div
@@ -137,14 +140,25 @@ const RestaurantsPage = () => {
                     </motion.div>
 
                     <AnimatePresence mode="wait">
-                        {filteredAndSorted.length === 0 ? (
+                        {loading ? (
+                            <motion.div
+                                key="loading"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="restaurants-loading"
+                            >
+                                <p>Завантаження закладів…</p>
+                            </motion.div>
+                        ) : filteredAndSorted.length === 0 ? (
                             <motion.div
                                 key="no-results"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 className="no-results"
                             >
+                                <Store size={48} strokeWidth={1.2} />
                                 <p>Нічого не знайдено</p>
+                                <span>Спробуйте змінити пошук або фільтри</span>
                             </motion.div>
                         ) : (
                             <motion.div className="restaurants-grid">
@@ -160,7 +174,7 @@ const RestaurantsPage = () => {
                                         className="restaurant-card"
                                     >
                                         <Link
-                                            to={`/restaurant/${restaurant.id}`}
+                                            to={ROUTES.customer.restaurant(restaurant.id)}
                                             className="restaurant-link"
                                             state={{ restaurant }}
                                         >
@@ -207,7 +221,6 @@ const RestaurantsPage = () => {
                     </AnimatePresence>
                 </div>
             </div>
-        </div>
     );
 };
 

@@ -28,6 +28,55 @@ export function getStatusDisplay(statusKey) {
     return displays[statusKey] ?? displays.new;
 }
 
+/** Order list item for business dashboard */
+export function mapBusinessOrder(o) {
+    return {
+        id: o.id,
+        createdAt: o.orderDate
+            ? new Date(o.orderDate).toLocaleTimeString("uk-UA", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+              })
+            : "",
+        customerName: o.customerFullName ?? "Клієнт",
+        address: o.customerAddress ?? "",
+        total: o.totalPrice ?? 0,
+        status: mapBusinessOrderStatus(o.orderStatus),
+        courier: o.courierName?.trim() ? { name: o.courierName.trim() } : null,
+        items: (o.dishes ?? []).map((d) => ({
+            name: d.dishName ?? d.name ?? "Страва",
+            quantity: d.quantity ?? 1,
+            price: d.price ?? 0,
+        })),
+    };
+}
+
+export function mapBusinessOrderStatus(status) {
+    switch (status) {
+        case "Pending":
+            return "pending";
+        case "Preparing":
+            return "preparing";
+        case "Ready":
+            return "ready";
+        case "OutForDelivery":
+            return "ready";
+        case "Delivered":
+            return "delivered";
+        case "Canceled":
+            return "cancelled";
+        default:
+            return "pending";
+    }
+}
+
+export const BUSINESS_STATUS_TO_API = {
+    preparing: "Preparing",
+    ready: "Ready",
+    delivered: "Delivered",
+    cancelled: "Canceled",
+};
+
 export function mapCustomerOrder(o) {
     return {
         id: o.id,

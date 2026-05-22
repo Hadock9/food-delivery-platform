@@ -7,12 +7,28 @@ import {
 } from 'lucide-react';
 import './styles/CustomerHomePage.css';
 import { getAllDishesForCustomer} from "../api/Dish.jsx";
-import CustomerSidebar from './customer-components/CustomerSidebar';
+import { useUser } from '../context/UserContext.jsx';
 import DishCardComponent from './customer-components/DishCardComponent';
+import WelcomeBanner from './WelcomeBanner.jsx';
 import {CategoryList, CategoryMap} from "../constants/category.jsx";
 import { resolveDishImage } from "../utils/images.js";
 
 const CustomerHomePage = () => {
+    const { user, accounts, currentAccountId } = useUser();
+    const userData = React.useMemo(() => {
+        if (!user) return null;
+        const currentAccount =
+            accounts.find((a) => a.id === currentAccountId) ?? accounts[0] ?? null;
+        return {
+            user,
+            accounts,
+            currentAccount,
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            email: user.email,
+        };
+    }, [user, accounts, currentAccountId]);
     const [popularDishes, setPopularDishes] = useState([]);
     const [allDishes, setAllDishes] = useState([]);
     const [filteredDishes, setFilteredDishes] = useState([]);
@@ -21,12 +37,14 @@ const CustomerHomePage = () => {
     const [selectedRating, setSelectedRating] = useState('all');
     const [priceRange, setPriceRange] = useState([0, 5000]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     useEffect(() => {
         const fetchDishes = async () => {
             try {
                 setLoading(true);
+                setLoadError(null);
                 const data = await getAllDishesForCustomer();
                 const mappedDishes = data.map(d => {
                     const image = resolveDishImage(
@@ -60,6 +78,12 @@ const CustomerHomePage = () => {
             }
             catch (err) {
                 console.error("Помилка при завантаженні страв:", err);
+                setLoadError(
+                    "Не вдалося завантажити страви. Перевірте, що MenuService запущений (порт 5004)."
+                );
+                setPopularDishes([]);
+                setAllDishes([]);
+                setFilteredDishes([]);
             }
             finally {
                 setLoading(false);
@@ -90,13 +114,15 @@ const CustomerHomePage = () => {
     };
 
     return (
-        <div className="app-wrapper">
-            {/* МЕНЮ ЗЛІВА — просто додано, нічого не зламано */}
-            <CustomerSidebar />
-
-
-            {/* ТВІЙ ОРИГІНАЛЬНИЙ КОНТЕНТ — 1 в 1 */}
             <div className="auth-homepage">
+                <WelcomeBanner userData={userData} role="customer" />
+
+                {loadError && (
+                    <div className="customer-load-error" role="alert">
+                        {loadError}
+                    </div>
+                )}
+
                 <div className="particles">
                     {[...Array(6)].map((_, i) => (
                         <motion.div
@@ -231,7 +257,6 @@ const CustomerHomePage = () => {
                     )}
                 </motion.section>
             </div>
-        </div>
     );
 };
 

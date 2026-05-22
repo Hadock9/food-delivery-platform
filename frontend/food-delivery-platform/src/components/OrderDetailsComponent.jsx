@@ -1,8 +1,42 @@
-﻿import React from "react";
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { X, Receipt, CreditCard, Truck, FileText, User, Package, MapPin, Clock } from "lucide-react";
+import DeliveryMapWidget from "./map/DeliveryMapWidget.jsx";
+import { getOrderTracking } from "../api/Tracking.jsx";
+import { ROUTES } from "../utils/roleRoutes.js";
 import "./styles/OrderDetailsComponent.css";
 
+function normalizeLocation(loc) {
+    if (!loc) return null;
+    return {
+        latitude: loc.latitude ?? loc.Latitude,
+        longitude: loc.longitude ?? loc.Longitude,
+        fullAddress: loc.fullAddress ?? loc.FullAddress,
+    };
+}
+
 export default function OrderDetailsComponent({ order, statusMap, onClose }) {
+    const [tracking, setTracking] = useState(null);
+
+    useEffect(() => {
+        if (!order?.id) return;
+        let cancelled = false;
+        getOrderTracking(order.id)
+            .then((t) => {
+                if (!cancelled) {
+                    setTracking({
+                        deliverFrom: normalizeLocation(t.deliverFrom ?? t.DeliverFrom),
+                        deliverTo: normalizeLocation(t.deliverTo ?? t.DeliverTo),
+                        courier: normalizeLocation(t.courier ?? t.Courier),
+                    });
+                }
+            })
+            .catch(() => setTracking(null));
+        return () => {
+            cancelled = true;
+        };
+    }, [order?.id]);
+
     if (!order) return null;
     const s = statusMap[order.status] ?? {
         label: order.statusRaw ?? order.status ?? "Статус",
@@ -113,10 +147,27 @@ export default function OrderDetailsComponent({ order, statusMap, onClose }) {
                             <div className="od-card">
                                 <p><strong>Спосіб:</strong> {mockOrder.deliveryMethod}</p>
                                 <p className="muted"><Clock size={14} /> Очікуваний час: {mockOrder.eta}</p>
+                                <p className="muted"><MapPin size={14} /> {mockOrder.address}</p>
+                                <Link to={ROUTES.customer.tracking(order.id)} className="od-track-link">
+                                    Відкрити карту маршруту
+                                </Link>
                             </div>
                         </section>
                     </div>
                 </div>
+
+                <section className="od-map-section">
+                    <DeliveryMapWidget
+                        deliverFrom={tracking?.deliverFrom}
+                        deliverTo={tracking?.deliverTo}
+                        courier={tracking?.courier}
+                        fallbackAddress={mockOrder.address || order.address}
+                        height={280}
+                        compact
+                        title="Куди їхати"
+                    />
+                </section>
+
                 {/* FOOTER */}
                 <footer className="od-footer">
                     <span>Разом</span>

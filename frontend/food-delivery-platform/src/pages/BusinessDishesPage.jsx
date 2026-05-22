@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { useUser } from "../context/UserContext.jsx";
 import BusinessHomePage from "../components/BusinessHomePage.jsx";
 import { buildBusinessUserData } from "../utils/businessUserData.js";
+import "../components/styles/BusinessHomePage.css";
 
 export default function BusinessDishesPage() {
     const { user, accounts, currentAccountId, loading } = useUser();
@@ -13,9 +14,9 @@ export default function BusinessDishesPage() {
 
     if (loading) {
         return (
-            <div className="page-wrapper" style={{ padding: "2rem", textAlign: "center" }}>
-                Завантаження...
-            </div>
+            <main className="bh-main" style={{ placeItems: "center" }}>
+                <div className="bh-empty">Завантаження…</div>
+            </main>
         );
     }
 

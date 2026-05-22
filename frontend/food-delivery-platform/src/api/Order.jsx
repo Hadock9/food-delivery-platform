@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 
 const ORDER_API_BASE =
     import.meta.env.VITE_ORDER_API_URL ||

@@ -1,90 +1,105 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { ArrowLeft, Clock, Truck } from "lucide-react";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import CustomerSidebar from "../components/customer-components/CustomerSidebar.jsx";
+import { ROUTES } from "../utils/roleRoutes.js";
+import DeliveryMapWidget from "../components/map/DeliveryMapWidget.jsx";
 import { getOrderTracking } from "../api/Tracking.jsx";
 import "./styles/TrackingPage.css";
 
-const defaultIcon = L.icon({
-    iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-});
-L.Marker.prototype.options.icon = defaultIcon;
+function normalizeLocation(loc) {
+  if (!loc) return null;
+  return {
+    latitude: loc.latitude ?? loc.Latitude,
+    longitude: loc.longitude ?? loc.Longitude,
+    fullAddress: loc.fullAddress ?? loc.FullAddress,
+  };
+}
 
 const TrackingPage = () => {
-    const { orderId } = useParams();
-    const [data, setData] = useState(null);
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(true);
+  const { orderId } = useParams();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                setLoading(true);
-                const tracking = await getOrderTracking(orderId);
-                setData(tracking);
-            } catch (e) {
-                setError("Не вдалося завантажити трекінг замовлення");
-                console.error(e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        load();
-        const interval = setInterval(load, 15000);
-        return () => clearInterval(interval);
-    }, [orderId]);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const tracking = await getOrderTracking(orderId);
+        setData({
+          ...tracking,
+          deliverFrom: normalizeLocation(tracking.deliverFrom ?? tracking.DeliverFrom),
+          deliverTo: normalizeLocation(tracking.deliverTo ?? tracking.DeliverTo),
+          courier: normalizeLocation(tracking.courier ?? tracking.Courier),
+        });
+      } catch (e) {
+        setError("Не вдалося завантажити трекінг замовлення");
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
+  }, [orderId]);
 
-    const center = data?.deliverTo
-        ? [data.deliverTo.latitude, data.deliverTo.longitude]
-        : [50.4501, 30.5234];
+  const fallbackAddress =
+    data?.deliverTo?.fullAddress ||
+    data?.deliveryAddress ||
+    data?.address;
 
-    return (
-        <div className="app-wrapper">
-            <CustomerSidebar />
-            <div className="tracking-page">
-                <Link to="/customer/orders" className="back-link">
-                    <ArrowLeft size={18} /> До замовлень
-                </Link>
-                <h1><Truck size={28} /> Відстеження #{orderId?.slice(0, 8)}</h1>
+  return (
+      <div className="tracking-page customer-page-content">
+        <Link to={ROUTES.customer.orders} className="back-link">
+          <ArrowLeft size={18} /> До замовлень
+        </Link>
+        <h1>
+          <Truck size={28} /> Відстеження #{orderId?.slice(0, 8)}
+        </h1>
 
-                {loading && <p className="muted">Завантаження...</p>}
-                {error && <p className="error">{error}</p>}
+        {loading && <p className="muted">Завантаження...</p>}
+        {error && <p className="error">{error}</p>}
 
-                {data && (
-                    <>
-                        <div className="tracking-status-card">
-                            <p><strong>Статус:</strong> {data.status}</p>
-                            {data.etaMinutes != null && (
-                                <p><Clock size={16} /> Орієнтовно: ~{data.etaMinutes} хв</p>
-                            )}
-                        </div>
-                        <div className="tracking-map">
-                            <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }}>
-                                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                {data.deliverFrom && (
-                                    <Marker position={[data.deliverFrom.latitude, data.deliverFrom.longitude]}>
-                                        <Popup>Ресторан</Popup>
-                                    </Marker>
-                                )}
-                                {data.deliverTo && (
-                                    <Marker position={[data.deliverTo.latitude, data.deliverTo.longitude]}>
-                                        <Popup>Адреса доставки</Popup>
-                                    </Marker>
-                                )}
-                            </MapContainer>
-                        </div>
-                    </>
-                )}
+        {data && (
+          <>
+            <div className="tracking-status-card">
+              <p>
+                <strong>Статус:</strong> {data.status ?? "—"}
+              </p>
+              {data.etaMinutes != null && (
+                <p>
+                  <Clock size={16} /> Орієнтовно: ~{data.etaMinutes} хв
+                </p>
+              )}
+              {fallbackAddress && (
+                <p className="tracking-address-line">
+                  <strong>Куди:</strong> {fallbackAddress}
+                </p>
+              )}
             </div>
-        </div>
-    );
+
+            <DeliveryMapWidget
+              deliverFrom={data.deliverFrom}
+              deliverTo={data.deliverTo}
+              courier={data.courier}
+              fallbackAddress={fallbackAddress}
+              height={420}
+              title="Куди їхати"
+            />
+          </>
+        )}
+
+        {!loading && !error && !data?.deliverTo && !fallbackAddress && (
+          <DeliveryMapWidget
+            fallbackAddress="Київ, Україна"
+            height={320}
+            title="Карта"
+          />
+        )}
+      </div>
+  );
 };
 
 export default TrackingPage;

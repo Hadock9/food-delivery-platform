@@ -1,4 +1,17 @@
-﻿import axios from "axios";
+import axios from "axios";
+
+/** Текст помилки з відповіді UserService (400/401). */
+export function getAuthErrorMessage(err, fallback = "Не вдалося увійти. Перевірте email і пароль.") {
+    const data = err?.response?.data;
+    if (!data) return err?.message || fallback;
+    if (typeof data === "string") return data;
+    if (data.message) return data.message;
+    if (data.errors) {
+        const first = Object.values(data.errors).flat()[0];
+        if (first) return first;
+    }
+    return fallback;
+}
 
 const USER_API_BASE =
     import.meta.env.VITE_USER_API_URL ||
@@ -21,10 +34,10 @@ authApi.interceptors.request.use(config => {
 // 📦 API
 export const register = async (userData) => {
     const response = await authApi.post("/register", {
-        email: userData.email,
+        email: userData.email?.trim(),
         password: userData.password,
-        name: userData.name,
-        surname: userData.surname
+        name: userData.name?.trim(),
+        surname: userData.surname?.trim()
     });
     saveTokens(response.data);
     return response.data;
@@ -32,7 +45,7 @@ export const register = async (userData) => {
 
 export const login = async (credentials) => {
     const response = await authApi.post("/login", {
-        email: credentials.email,
+        email: credentials.email?.trim(),
         password: credentials.password
     });
     saveTokens(response.data);

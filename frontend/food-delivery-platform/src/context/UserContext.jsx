@@ -1,4 +1,4 @@
-﻿// src/context/UserContext.jsx
+// src/context/UserContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getProfileData, switchAccount } from "../api/Profile.jsx";
 import { refresh, logout } from "../api/Auth.jsx";
@@ -16,7 +16,7 @@ export const UserProvider = ({ children }) => {
         try {
             let token = localStorage.getItem("accessToken");
             if (!token) {
-                return;
+                return null;
             }
             const data = await getProfileData(token);
             setUser(data.user);
@@ -34,11 +34,13 @@ export const UserProvider = ({ children }) => {
                 }
                 localStorage.setItem("currentAccountId", data.currentAccount.id);
             }
+            return data;
         } catch (err) {
             if (err?.response?.status !== 401) {
                 console.error("Load user error:", err);
             }
             setUser(null);
+            return null;
         } finally {
             setLoading(false);
         }

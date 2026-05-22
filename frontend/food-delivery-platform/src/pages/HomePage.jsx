@@ -1,48 +1,42 @@
-﻿import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getProfile } from '../api/User.jsx';
+import React, { useMemo } from 'react';
 import './styles/HomePage.css';
 
-// Підкомпоненти
 import UnauthenticatedHome from '../components/UnauthenticatedHome';
 import CustomerHomePage from '../components/CustomerHomePage.jsx';
-import BusinessHomePage from "../components/BusinessHomePage.jsx";
-import CourierHomePage from "../components/curier/CourierHomePage.jsx";
+import BusinessDashboardHome from '../components/business/BusinessDashboardHome.jsx';
+import CourierHomePage from '../components/curier/CourierHomePage.jsx';
+import { useUser } from '../context/UserContext.jsx';
+import { resolveAccountRole } from '../utils/accountRole.js';
+import { buildBusinessUserData } from '../utils/businessUserData.js';
 
 const HomePage = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [accountType, setAccountType] = useState(null);
-    const [userData, setUserData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
+    const { user, accounts, currentAccountId, loading } = useUser();
+    const token = localStorage.getItem('accessToken');
 
-    useEffect(() => {
-        const checkAuth = async () => {
-            const token = localStorage.getItem('accessToken');
-            if (!token) {
-                setIsAuthenticated(false);
-                setLoading(false);
-                return;
-            }
-
-            try {
-                const userProfile = await getProfile();
-                setIsAuthenticated(true);
-                setUserData(userProfile);
-                setAccountType(userProfile.currentAccount?.accountType);
-                console.log(userProfile);
-            } catch (error) {
-                console.log('Token invalid or expired, logging out...');
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('accessTokenExpiresAt');
-                setIsAuthenticated(false);
-            } finally {
-                setLoading(false);
-            }
+    const userData = useMemo(() => {
+        if (!user) return null;
+        const currentAccount =
+            accounts.find((a) => a.id === currentAccountId) ?? accounts[0] ?? null;
+        return {
+            user,
+            accounts,
+            currentAccount,
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            email: user.email,
         };
+    }, [user, accounts, currentAccountId]);
 
-        checkAuth();
-    }, []);
+    const accountType = useMemo(() => {
+        const acc = accounts.find((a) => a.id === currentAccountId) ?? accounts[0];
+        return resolveAccountRole(acc?.accountType)?.toLowerCase() ?? null;
+    }, [accounts, currentAccountId]);
+
+    const businessUserData = useMemo(
+        () => buildBusinessUserData(user, accounts, currentAccountId),
+        [user, accounts, currentAccountId]
+    );
 
     if (loading) {
         return (
@@ -52,25 +46,25 @@ const HomePage = () => {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    height: '100vh'
+                    height: '100vh',
                 }}
             >
-                <div className="loading-spinner">Loading...</div>
+                <div className="loading-spinner">Завантаження…</div>
             </div>
         );
     }
 
-    if (!isAuthenticated) {
+    if (!token || !user) {
         return <UnauthenticatedHome />;
     }
 
-    switch (accountType?.toLowerCase()) {
+    switch (accountType) {
         case 'customer':
-            return <CustomerHomePage /*currentAccountId={currentAccountId}*/ />;
+            return <CustomerHomePage userData={userData} />;
         case 'business':
-            return <BusinessHomePage userData={userData} />;
+            return <BusinessDashboardHome userData={businessUserData} />;
         case 'courier':
-             return <CourierHomePage userData={userData} />;
+            return <CourierHomePage userData={userData} />;
         default:
             return <UnauthenticatedHome />;
     }

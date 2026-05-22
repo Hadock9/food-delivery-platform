@@ -1,4 +1,4 @@
-﻿import axios from "axios";
+import axios from "axios";
 import {CategoryMap} from "../constants/category.jsx";
 
 const API_BASE =

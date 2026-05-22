@@ -1,4 +1,20 @@
-﻿.od-overlay {
+﻿.od-map-section {
+    margin-top: 20px;
+}
+
+.od-track-link {
+    display: inline-block;
+    margin-top: 10px;
+    color: var(--accent-3);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.od-track-link:hover {
+    text-decoration: underline;
+}
+
+.od-overlay {
     position: fixed;
     inset: 0;
     background: radial-gradient(ellipse at top left, rgba(124, 92, 255, 0.18), rgba(0, 212, 255, 0.08), rgba(0, 0, 0, 0.85));

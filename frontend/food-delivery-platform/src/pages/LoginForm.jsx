@@ -1,7 +1,9 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { login } from '../api/Auth.jsx';
+import { login, getAuthErrorMessage } from '../api/Auth.jsx';
 import { useUser } from '../context/UserContext.jsx';
+import { resolveAccountRole } from '../utils/accountRole.js';
+import { homePathForRole, ROUTES } from '../utils/roleRoutes.js';
 import './styles/LoginForm.css';
 
 const LoginForm = () => {
@@ -25,11 +27,16 @@ const LoginForm = () => {
         setError(null);
         try {
             await login(formData);
-            await reloadUser();
+            const profile = await reloadUser();
 
-            navigate(returnTo, { replace: true });
+            const role = resolveAccountRole(profile?.currentAccount?.accountType);
+            const target =
+                returnTo && returnTo !== "/" && returnTo !== ROUTES.home
+                    ? returnTo
+                    : homePathForRole(role);
+            navigate(target, { replace: true });
         } catch (err) {
-            setError(err.message || 'Failed to login. Please check your credentials.');
+            setError(getAuthErrorMessage(err));
         }
     };
 
@@ -37,8 +44,11 @@ const LoginForm = () => {
     return (
         <div className="page-wrapper">
             <div className="register-container">
-                <h2>Login to Foodie Delivery 🍔</h2>
+                <h2>Увійти в Foodie Delivery 🍔</h2>
                 {error && <p className="error-text">{error}</p>}
+                <p className="hint-text" style={{ fontSize: "0.85rem", opacity: 0.75, marginBottom: "1rem" }}>
+                    Немає акаунта? <Link to="/register">Зареєструйтесь</Link> — пароль мін. 6 символів, велика/мала літера, цифра та спецсимвол (напр. Test123!)
+                </p>
                 <form className="register-form" onSubmit={handleSubmit}>
                     <input
                         type="email"

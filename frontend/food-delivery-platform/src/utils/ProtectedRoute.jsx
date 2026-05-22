@@ -2,6 +2,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext.jsx';
 import { resolveAccountRole } from './accountRole.js';
+import { homePathForRole, ROUTES } from './roleRoutes.js';
 
 /**
  * @param {object} props
@@ -14,7 +15,7 @@ const ProtectedRoute = ({ children, roles }) => {
     const token = localStorage.getItem('accessToken');
 
     if (!token) {
-        return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+        return <Navigate to={ROUTES.login} replace state={{ from: location.pathname }} />;
     }
 
     if (loading) {
@@ -26,29 +27,25 @@ const ProtectedRoute = ({ children, roles }) => {
     }
 
     if (roles?.length) {
+        const hasRequiredAccount = accounts.some((a) =>
+            roles.includes(resolveAccountRole(a.accountType))
+        );
+
+        if (!hasRequiredAccount) {
+            const fallback = accounts[0]
+                ? homePathForRole(resolveAccountRole(accounts[0].accountType))
+                : ROUTES.profile;
+            return <Navigate to={fallback} replace />;
+        }
+
         const currentAcc = accounts.find((a) => a.id === currentAccountId);
         const fromContext = resolveAccountRole(currentAcc?.accountType);
         const fromStorage = resolveAccountRole(localStorage.getItem('currentAccountType'));
         const currentRole = fromContext ?? fromStorage;
 
-        if (!currentRole || !roles.includes(currentRole)) {
-            const hasNeededAccount = accounts.some((a) =>
-                roles.includes(resolveAccountRole(a.accountType))
-            );
-            if (hasNeededAccount) {
-                return (
-                    <Navigate
-                        to="/profile"
-                        replace
-                        state={{
-                            cartHint: true,
-                            neededRole: roles[0],
-                            from: location.pathname,
-                        }}
-                    />
-                );
-            }
-            return <Navigate to="/" replace />;
+        const activeRoleOk = currentRole && roles.includes(currentRole);
+        if (!activeRoleOk && !hasRequiredAccount) {
+            return <Navigate to={homePathForRole(currentRole) || ROUTES.profile} replace />;
         }
     }
 

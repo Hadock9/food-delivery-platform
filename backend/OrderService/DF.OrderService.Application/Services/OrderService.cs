@@ -1,4 +1,4 @@
-﻿using DF.Contracts.EventDriven;
+using DF.Contracts.EventDriven;
 using DF.Contracts.RPC.Requests.MenuService;
 using DF.Contracts.RPC.Requests.TrackingService;
 using DF.Contracts.RPC.Requests.UserService;
@@ -203,21 +203,16 @@ public class OrderService(
 
     public async Task<IEnumerable<BusinessOrderResponse>> GetAllByBusinessIdAsync(Guid businessId)
     {
-        var orders = (await orderRepository.GetAll())
-            .Where(o => o.DeliveredById == null
-                        && o.DeliverToId.HasValue
-                        && o.DeliverFromId.HasValue)
+        var orders = (await orderRepository.GetOrdersByBusinessIdAsync(businessId))
+            .Where(o => o.OrderStatus != OrderStatus.Canceled)
             .ToList();
-
 
         if (!orders.Any())
             return Enumerable.Empty<BusinessOrderResponse>();
 
-        // 1️⃣ Business
         var businessTask = userServiceRpcClient.GetBusinessAccountAsync(
             new GetBusinessAccountRequest(businessId));
 
-        // 2️⃣ Couriers (optional)
         var courierTasks = orders
             .Where(o => o.DeliveredById != null)
             .Select(o => o.DeliveredById!.Value)
@@ -228,7 +223,6 @@ public class OrderService(
                     new GetCourierAccountRequest(id))
             );
 
-        // 3️⃣ Customers (OrderedBy)
         var customerTasks = orders
             .Select(o => o.OrderedBy)
             .Distinct()
@@ -238,14 +232,14 @@ public class OrderService(
                     new GetCustomerAccountRequest(id))
             );
 
-        // 3️⃣ Locations (DeliverTo / DeliverFrom)
-        var locationTasks = orders.ToDictionary(
-            o => o.Id,
-            o => trackingServiceRpcClient.GetLocationsAsync(
-                new GetLocationRequest(o.DeliverToId.Value, o.DeliverFromId.Value))
-        );
+        var locationTasks = orders
+            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
+            .ToDictionary(
+                o => o.Id,
+                o => trackingServiceRpcClient.GetLocationsAsync(
+                    new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
+            );
 
-        // 4️⃣ Await ALL
         var allTasks = courierTasks.Values
             .Select(t => (Task)t)
             .Concat(customerTasks.Values.Select(t => (Task)t))
@@ -254,8 +248,6 @@ public class OrderService(
 
         await Task.WhenAll(allTasks);
 
-
-        // 5️⃣ Collect results
         var business = await businessTask;
 
         var couriers = courierTasks.ToDictionary(
@@ -267,14 +259,12 @@ public class OrderService(
             x => x.Key,
             x => x.Value.Result
         );
-        
+
         var locations = locationTasks.ToDictionary(
-            x => x.Key,          // OrderId
-            x => x.Value.Result  // GetLocationsResponse
+            x => x.Key,
+            x => x.Value.Result
         );
 
-
-        // 6️⃣ Map orders + dishes
         var responses = new List<BusinessOrderResponse>();
 
         foreach (var o in orders)
@@ -284,7 +274,10 @@ public class OrderService(
                 : null;
 
             var customer = customers[o.OrderedBy];
-            var location = locations[o.Id];
+
+            var customerAddress = "—";
+            if (locations.TryGetValue(o.Id, out var location) && location?.DeliverTo != null)
+                customerAddress = location.DeliverTo.FullAddress;
 
             var orderedDishes = await orderDishRepository.GetOrderDishesByOrderId(o.Id);
 
@@ -310,9 +303,7 @@ public class OrderService(
                 BusinessName: business.Name,
                 OrderedBy: o.OrderedBy,
                 CustomerFullName: $"{customer.Name} {customer.Surname}",
-
-                CustomerAddress: location.DeliverTo.FullAddress,
-
+                CustomerAddress: customerAddress,
                 OrderDate: o.OrderDate,
                 TotalPrice: o.TotalPrice,
                 DeliveredBy: o.DeliveredById ?? Guid.Empty,
@@ -323,7 +314,6 @@ public class OrderService(
                 dishes: dishResponses
             ));
         }
-
 
         return responses;
     }

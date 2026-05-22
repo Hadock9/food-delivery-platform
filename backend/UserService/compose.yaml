@@ -1,4 +1,4 @@
-﻿services:
+services:
   df.userservice.api:
     image: df.userservice.api
     build:

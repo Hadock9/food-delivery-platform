@@ -1,10 +1,10 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Trash2, Plus, Minus, ArrowLeft } from 'lucide-react';
 
 import "./styles/CartPage.css";
-import CustomerSidebar from "../components/customer-components/CustomerSidebar.jsx";
+import { ROUTES } from "../utils/roleRoutes.js";
 import { getCart, saveCart } from "../utils/CartStorage.jsx";
 import { resolveDishImage, handleImageError, dishImgProps } from "../utils/images.js";
 import { useUser } from "../context/UserContext.jsx";
@@ -53,14 +53,14 @@ const CartPage = () => {
     const handleCheckout = () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
-            navigate('/login', { state: { from: '/checkout' } });
+            navigate(ROUTES.login, { state: { from: ROUTES.customer.checkout } });
             return;
         }
         if (!loading && user && !isCustomer) {
-            navigate('/profile', { state: { cartHint: true, neededRole: 'Customer', from: '/checkout' } });
+            navigate(ROUTES.profile, { state: { cartHint: true, neededRole: 'Customer', from: ROUTES.customer.checkout } });
             return;
         }
-        navigate('/checkout');
+        navigate(ROUTES.customer.checkout);
     };
 
     if (cartItems.length === 0) {
@@ -70,7 +70,7 @@ const CartPage = () => {
                     <ShoppingCart size={80} strokeWidth={1.2} className="empty-icon" />
                     <h2>Ваш кошик порожній</h2>
                     <p>Додайте страви з меню, щоб зробити замовлення</p>
-                    <Link to="/" className="back-to-menu-btn">
+                    <Link to={ROUTES.customer.root} className="back-to-menu-btn">
                         <ArrowLeft size={20} /> Повернутись до меню
                     </Link>
                 </motion.div>
@@ -79,8 +79,7 @@ const CartPage = () => {
     }
 
     return (
-        <div className="app-wrapper">
-            <CustomerSidebar />
+        <div className="customer-page-content cart-page-root">
             <div className="cart-page-wrapper">
                 <div className="cart-container">
                     <motion.h1 initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} className="cart-title">
@@ -130,7 +129,7 @@ const CartPage = () => {
                             <button type="button" className="checkout-btn" onClick={handleCheckout}>
                                 Оформити замовлення
                             </button>
-                            <Link to="/" className="continue-shopping">Продовжити покупки</Link>
+                            <Link to={ROUTES.customer.root} className="continue-shopping">Продовжити покупки</Link>
                         </motion.div>
                     </div>
                 </div>

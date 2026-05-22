@@ -1,5 +1,6 @@
-﻿import React from "react";
+import React from "react";
 import { Link } from "react-router-dom";
+import { ROUTES } from "../../utils/roleRoutes.js";
 import { Star, MapPin, Zap } from "lucide-react";
 import { resolveDishImage, handleImageError, dishImgProps } from "../../utils/images.js";
 import "./styles/DishCardComponent.css";
@@ -11,7 +12,7 @@ const DishCardComponent = ({ dish, isPopular = false }) => {
     const ratingText = Number.isFinite(ratingLabel) ? ratingLabel.toFixed(1) : "—";
 
     return (
-        <Link to={`/dish/${dish.id}`} className={`dish-card ${isPopular ? "popular-card" : ""}`}>
+        <Link to={ROUTES.customer.dish(dish.id)} className={`dish-card ${isPopular ? "popular-card" : ""}`}>
             <div className="image-wrapper">
                 <img
                     src={imageSrc}

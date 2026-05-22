@@ -1,4 +1,4 @@
-﻿using DF.UserService.Application.Interfaces;
+using DF.UserService.Application.Interfaces;
 using DF.UserService.Application.Services;
 using DF.UserService.Domain.Entities;
 using DF.UserService.Infrastructure.Data;

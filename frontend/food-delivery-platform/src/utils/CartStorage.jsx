@@ -1,4 +1,4 @@
-﻿import { resolveDishImage } from "./images.js";
+import { resolveDishImage } from "./images.js";
 
 const CART_KEY = "cart";
 

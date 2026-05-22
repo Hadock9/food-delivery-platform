@@ -8,6 +8,7 @@ import CourierSidebar from './components/CourierSidebar.jsx';
 import NewOrderSection from './components/NewOrdersSection.jsx';
 import ActiveOrderSection from './components/ActiveOrderSection.jsx';
 import HistorySection from './components/HistorySection.jsx';
+import WelcomeBanner from '../WelcomeBanner.jsx';
 
 import { getOrdersByCourier } from '../../api/Order.jsx';
 
@@ -89,6 +90,7 @@ export default function CourierHomePage({ userData }) {
             />
 
             <div className="auth-homepage courier-homepage">
+                <WelcomeBanner userData={userData} role="courier" />
                 <div className="particles">
                     {[...Array(6)].map((_, i) => (
                         <motion.div key={i} className="particle"

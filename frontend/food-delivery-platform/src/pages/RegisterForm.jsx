@@ -1,6 +1,6 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { register } from '../api/Auth.jsx';
+import { register, getAuthErrorMessage } from '../api/Auth.jsx';
 import { useUser } from '../context/UserContext.jsx';
 import './styles/RegisterForm.css';
 
@@ -25,10 +25,9 @@ const RegisterForm = () => {
             await register(formData);
             await reloadUser();
             alert(`Welcome, ${formData.name}! 🎉`);
-            window.location.href = "/food-delivery-platform/profile";
+            window.location.href = "/food-delivery-platform/customer";
         } catch (err) {
-            const data = err.response?.data;
-            setError(data?.message || data || 'Failed to register. Please try again.');
+            setError(getAuthErrorMessage(err, "Не вдалося зареєструватись. Спробуйте ще раз."));
         }
     };
 

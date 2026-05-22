@@ -1,10 +1,12 @@
-﻿// src/components/HeaderComponent.jsx
-import React, { useState, useRef, useEffect } from "react";
+// src/components/HeaderComponent.jsx
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { motion, AnimatePresence } from "framer-motion";
 import "./styles/HeaderComponent.css";
 import { resolveRestaurantImage, handleImageError } from "../utils/images.js";
+import { resolveAccountRole } from "../utils/accountRole.js";
+import { ROUTES, homePathForRole } from "../utils/roleRoutes.js";
 
 const Header = () => {
     const { user, accounts, currentAccountId, loading, logout, switchAccount } = useUser();
@@ -13,7 +15,11 @@ const Header = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    // Закриття дропдауна при кліку поза ним
+    const activeRole = useMemo(() => {
+        const acc = accounts.find((a) => a.id === currentAccountId) ?? accounts[0];
+        return resolveAccountRole(acc?.accountType);
+    }, [accounts, currentAccountId]);
+
     useEffect(() => {
         const handleOutsideClick = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -29,61 +35,105 @@ const Header = () => {
         };
     }, [isDropdownOpen]);
 
-    // Переключення акаунта
     const handleSelectAccount = async (account) => {
         if (account.id === currentAccountId) {
             setIsDropdownOpen(false);
             return;
         }
-
         await switchAccount(account.id);
-        // reload() вже в UserContext → не потрібно тут
         setIsDropdownOpen(false);
+        const role = resolveAccountRole(account.accountType);
+        navigate(homePathForRole(role));
     };
 
-    const toggleAccounts = () => setIsAccountsOpen(prev => !prev);
+    const toggleAccounts = () => setIsAccountsOpen((prev) => !prev);
 
     if (loading) {
         return (
             <header className="header">
                 <h1>Foodie Delivery</h1>
-                <p>Loading...</p>
+                <p>Завантаження...</p>
             </header>
         );
     }
 
-    const activeAccount = accounts.find(acc => acc.id === currentAccountId) || {};
-    const otherAccounts = accounts.filter(acc => acc.id !== currentAccountId);
+    const activeAccount = accounts.find((acc) => acc.id === currentAccountId) || {};
+    const otherAccounts = accounts.filter((acc) => acc.id !== currentAccountId);
     const activeAvatar = resolveRestaurantImage(activeAccount, activeAccount.id, activeAccount.name);
     const totalAccounts = accounts.length;
+    const navLinkClass = ({ isActive }) => (isActive ? "nav-link active" : "nav-link");
 
-    // Позиціонування інших акаунтів
     const getPosition = (index) => {
         if (totalAccounts === 1) return { x: 0, y: 0, zIndex: 3 };
         if (totalAccounts === 2) return { x: index === 0 ? -20 : 0, y: 0, zIndex: index === 0 ? 1 : 3 };
-        if (index === 0) return { x: -20, y: 0, zIndex: 1 }; // Ліворуч
-        if (index === 1) return { x: 20, y: 0, zIndex: 1 }; // Праворуч
-        return { x: 0, y: 0, zIndex: 3 }; // Активний (центр)
+        if (index === 0) return { x: -20, y: 0, zIndex: 1 };
+        if (index === 1) return { x: 20, y: 0, zIndex: 1 };
+        return { x: 0, y: 0, zIndex: 3 };
     };
+
+    const homeLink = user ? homePathForRole(activeRole) : ROUTES.home;
 
     return (
         <header className="header">
-            <NavLink className="page-header" to="/">Foodie Delivery</NavLink>
+            <NavLink className="page-header" to={homeLink}>
+                Foodie Delivery
+            </NavLink>
 
-            <nav>
-                <NavLink className="nav-link" to="/">Home</NavLink>
-
+            <nav className="header-nav">
                 {!user && (
                     <>
-                        <NavLink className="nav-link" to="/login">Login</NavLink>
-                        <NavLink className="nav-link" to="/register">Register</NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.home}>
+                            Головна
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.customer.restaurants}>
+                            Заклади
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.login}>
+                            Увійти
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.register}>
+                            Реєстрація
+                        </NavLink>
                     </>
+                )}
+
+                {user && activeRole === "Customer" && (
+                    <>
+                        <NavLink className={navLinkClass} to={ROUTES.customer.root}>
+                            Каталог
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.customer.restaurants}>
+                            Заклади
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.customer.cart}>
+                            Кошик
+                        </NavLink>
+                    </>
+                )}
+
+                {user && activeRole === "Business" && (
+                    <>
+                        <NavLink className={navLinkClass} to={ROUTES.business.root}>
+                            Панель
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.business.orders}>
+                            Замовлення
+                        </NavLink>
+                        <NavLink className={navLinkClass} to={ROUTES.business.dishes}>
+                            Меню
+                        </NavLink>
+                    </>
+                )}
+
+                {user && activeRole === "Courier" && (
+                    <NavLink className={navLinkClass} to={ROUTES.courier.root}>
+                        Доставки
+                    </NavLink>
                 )}
 
                 {user && (
                     <div className="account-bubbles-container" ref={dropdownRef}>
                         <div className="account-bubbles">
-                            {/* Активний акаунт */}
                             <motion.div
                                 className="account-bubble active"
                                 title={activeAccount.accountType}
@@ -105,7 +155,6 @@ const Header = () => {
                                 />
                             </motion.div>
 
-                            {/* Інші акаунти */}
                             {otherAccounts.map((acc, index) => {
                                 const position = getPosition(index);
                                 return (
@@ -140,7 +189,6 @@ const Header = () => {
                             })}
                         </div>
 
-                        {/* Дропдаун */}
                         <AnimatePresence>
                             {isDropdownOpen && (
                                 <motion.div
@@ -150,19 +198,21 @@ const Header = () => {
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.3, ease: "easeOut" }}
                                 >
-                                    <h4>{user.name} {user.surname}</h4>
+                                    <h4>
+                                        {user.name} {user.surname}
+                                    </h4>
 
                                     <motion.button
                                         className="action-btn-header"
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => navigate("/profile")}
+                                        onClick={() => navigate(ROUTES.profile)}
                                     >
-                                        Profile
+                                        Профіль
                                     </motion.button>
 
                                     <h5 className="accounts-toggle" onClick={toggleAccounts}>
-                                        Accounts {isAccountsOpen ? "▲" : "▼"}
+                                        Акаунти {isAccountsOpen ? "▲" : "▼"}
                                     </h5>
 
                                     {isAccountsOpen && (
@@ -184,9 +234,9 @@ const Header = () => {
                                             className="action-btn-header"
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
-                                            onClick={() => navigate("/account/create")}
+                                            onClick={() => navigate(ROUTES.accountCreate)}
                                         >
-                                            Create Account
+                                            Новий акаунт
                                         </motion.button>
                                     )}
 
@@ -196,7 +246,7 @@ const Header = () => {
                                         whileTap={{ scale: 0.95 }}
                                         onClick={logout}
                                     >
-                                        Logout
+                                        Вийти
                                     </motion.button>
                                 </motion.div>
                             )}
