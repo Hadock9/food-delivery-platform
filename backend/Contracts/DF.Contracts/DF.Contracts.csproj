@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+
+        <PackageId>DF.Contracts</PackageId>
+        <Version>1.0.2-preview</Version>
+        <Authors>Vladyslav</Authors>
+        <PackageDescription>Shared contracts for DF microservices</PackageDescription>
+
+        <RepositoryUrl>https://github.com/vladyslavdrohomeretskyi/Contracts</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    </PropertyGroup>
+
+
+    <ItemGroup>
+      <Folder Include="RPC\" />
+    </ItemGroup>
+    
+</Project>
