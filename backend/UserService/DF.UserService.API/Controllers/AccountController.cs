@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using System.Linq;
 using DF.UserService.Application.Services.Interfaces;
 using DF.UserService.Contracts.Models.DTO;
 using DF.UserService.Contracts.Models.Request;
@@ -37,14 +38,16 @@ public class AccountController(IAccountService accountService) : ControllerBase
         return Ok(accounts);
     }
 
+    /// <summary>Публічний каталог закладів для гостей і клієнтів.</summary>
+    [AllowAnonymous]
     [HttpGet("all/business")]
     public async Task<IActionResult> GetAllBusinessAccounts()
     {
         var result = await accountService.GetBusinessAccountsAsync();
-        
-        if(result == null)
-            return NotFound($"Business accounts for user {User.Identity.Name} not found.");
-        
+
+        if (result == null || !result.Any())
+            return Ok(Array.Empty<AccountResponse>());
+
         return Ok(result);
     }
 

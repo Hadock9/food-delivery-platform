@@ -1,6 +1,6 @@
 ﻿:root{
-    --bg-900: #0b0f14;
-    --bg-800: #0f1519;
+    --bg-900: #0a0a0c;
+    --bg-800: #0f1114;
     --surface: rgba(255,255,255,0.04);
     --glass: rgba(255,255,255,0.03);
     --muted: #97a0a9;
@@ -164,7 +164,7 @@
 }
 .range-slider::-webkit-slider-thumb{
     -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
-    background: linear-gradient(180deg,#fff,#f1f1f1); box-shadow: 0 4px 12px rgba(3,8,20,0.5);
+    background: linear-gradient(180deg, rgba(124,92,255,0.4), rgba(0,212,255,0.2)); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     border:3px solid rgba(0,0,0,0.12); cursor:pointer;
 }
 

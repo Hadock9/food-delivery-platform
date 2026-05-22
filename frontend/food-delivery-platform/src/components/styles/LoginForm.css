@@ -1,86 +1,97 @@
-/* Login container */
-.login-container {
-    max-width: 450px; 
+/* Темна тема — узгоджено з pages/styles/LoginForm.css */
+.login-container,
+.register-container {
+    max-width: 450px;
     width: 100%;
     padding: 2.5rem;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(15, 17, 20, 0.92);
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(255, 99, 71, 0.2);
+    box-shadow: var(--card-shadow);
     text-align: center;
-    margin: 4rem auto; 
-    border: 1px solid rgba(255, 99, 71, 0.15);
-    backdrop-filter: blur(8px);
+    margin: 4rem auto;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
     animation: fadeIn 0.8s ease-in-out;
+    color: var(--text);
 }
 
-    .login-container h2 {
-        color: #ff5733;
-        margin-bottom: 2rem;
-        font-family: 'Poppins', sans-serif;
-        font-weight: 700;
-        font-size: 2rem;
-        letter-spacing: 0.5px;
-    }
+.login-container h2,
+.register-container h2 {
+    margin-bottom: 2rem;
+    font-weight: 700;
+    font-size: 2rem;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
 
-/* Input fields */
-.login-form input {
+.login-form input,
+.register-form input {
     width: 100%;
     padding: 16px;
     margin: 10px 0;
     border-radius: 12px;
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--glass-border);
     font-size: 1rem;
-    font-family: 'Poppins', sans-serif;
-    background: #fafafa;
-    transition: all 0.3s ease;
+    background: var(--bg-700);
+    color: var(--text);
 }
 
-    .login-form input:focus {
-        border-color: #ff5733;
-        outline: none;
-        box-shadow: 0 0 12px rgba(255, 87, 51, 0.3);
-        background: #fff;
-        transform: scale(1.01);
-    }
+.login-form input:focus,
+.register-form input:focus {
+    border-color: rgba(124, 92, 255, 0.5);
+    box-shadow: 0 0 12px rgba(124, 92, 255, 0.2);
+    background: #1a1e24;
+}
 
-/* Button */
-.login-form button {
+.login-form button,
+.register-form button {
     width: 100%;
     padding: 16px;
     margin-top: 1.5rem;
     border: none;
     border-radius: 12px;
-    background: linear-gradient(135deg, #ff5733, #ff8c66);
-    color: white;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+    color: #fff;
     font-size: 1.1rem;
-    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 6px 20px rgba(255, 87, 51, 0.3);
+    box-shadow: 0 8px 24px rgba(124, 92, 255, 0.25);
 }
 
-    .login-form button:hover {
-        background: linear-gradient(135deg, #ff4500, #ff7043);
-        transform: translateY(-3px);
-        box-shadow: 0 10px 25px rgba(255, 69, 0, 0.4);
-    }
+.login-form button:hover,
+.register-form button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+}
 
 .login-text {
     margin-top: 1.5rem;
     font-size: 0.95rem;
-    color: #333;
-    font-family: 'Poppins', sans-serif;
+    color: var(--muted-2);
 }
 
-    .login-text a {
-        color: #ff5733;
-        text-decoration: none;
-        font-weight: 600;
-        transition: color 0.3s ease;
-    }
+.login-text a {
+    color: var(--accent-3);
+    font-weight: 600;
+}
 
-        .login-text a:hover {
-            color: #ff4500;
-            text-decoration: underline;
-        }
+.login-text a:hover {
+    color: var(--text);
+}
+
+.error-text {
+    color: #ff8a8a;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

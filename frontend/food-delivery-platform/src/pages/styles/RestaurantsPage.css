@@ -1,7 +1,7 @@
 .app-wrapper {
     display: flex;
     min-height: 100vh;
-    background: linear-gradient(180deg, #0b0f14, #071014);
+    background: linear-gradient(180deg, var(--bg-900), #050608);
     color: #e6eef6;
 }
 
@@ -221,6 +221,26 @@
 }
 
 .restaurants-loading,
+.restaurants-error p {
+    color: #ff8a8a;
+    max-width: 420px;
+}
+
+.restaurants-retry-btn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.restaurants-retry-btn:hover {
+    filter: brightness(1.1);
+}
+
 .no-results {
     text-align: center;
     padding: 100px 20px;

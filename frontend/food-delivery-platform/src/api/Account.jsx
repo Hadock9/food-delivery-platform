@@ -23,9 +23,24 @@ export const getAccount = async (userId) => {
     return response.data;
 };
 
+/** Нормалізує бізнес-акаунт з API (camelCase / PascalCase). */
+export function normalizeBusinessAccount(raw) {
+    if (!raw) return null;
+    return {
+        id: raw.id ?? raw.Id,
+        name: raw.name ?? raw.Name ?? "Заклад",
+        description: raw.description ?? raw.Description ?? "",
+        imageUrl: raw.imageUrl ?? raw.ImageUrl ?? "",
+        accountType: raw.accountType ?? raw.AccountType,
+        userId: raw.userId ?? raw.UserId,
+    };
+}
+
 export const getAllBusinessAccounts = async () => {
     const response = await accountApi.get(`/all/business`);
-    return response.data;
+    const data = response.data;
+    const list = Array.isArray(data) ? data : [];
+    return list.map(normalizeBusinessAccount).filter(Boolean);
 };
 
 export const getAccounts = async (userId) => {

@@ -1,23 +1,41 @@
 .app-shell {
-    min-height: calc(100vh - 0px);
+    min-height: 100vh;
+    color: var(--text);
+    background: transparent;
+}
+
+.app-shell--public {
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(124, 92, 255, 0.07), transparent 6%),
+        radial-gradient(1000px 400px at 90% 80%, rgba(0, 212, 255, 0.04), transparent 8%),
+        linear-gradient(180deg, var(--bg-900) 0%, #050608 100%);
 }
 
 .app-shell--public .app-shell-main {
     flex: 1;
+    min-height: calc(100vh - 72px);
 }
 
 .app-shell--customer {
     display: flex;
     min-height: 100vh;
+    background: linear-gradient(180deg, var(--bg-900) 0%, #050608 100%);
 }
 
-.customer-layout-main {
+.customer-layout-main,
+.customer-page-content {
     flex: 1;
     min-width: 0;
+    color: var(--text);
+    background: radial-gradient(900px 400px at 8% 0%, rgba(124, 92, 255, 0.05), transparent 50%),
+        linear-gradient(180deg, var(--bg-900) 0%, #07090c 100%);
 }
 
 .app-shell--business.bh-page {
     min-height: 100vh;
+    background: radial-gradient(900px 400px at 10% 10%, rgba(124, 92, 255, 0.06), transparent 6%),
+        radial-gradient(700px 300px at 90% 80%, rgba(0, 212, 255, 0.03), transparent 8%),
+        linear-gradient(180deg, var(--bg-900), var(--bg-800));
 }
 
 .bh-main-wrap {
@@ -30,6 +48,7 @@
     display: grid;
     place-items: center;
     min-height: 60vh;
+    color: var(--muted-2);
 }
 
 @media (max-width: 768px) {

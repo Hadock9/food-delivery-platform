@@ -104,6 +104,7 @@ export default function BusinessOrdersPage() {
     }
 
     return (
+        <>
             <main className="bh-main">
                 <header className="bh-top">
                     <div>
@@ -257,5 +258,6 @@ export default function BusinessOrdersPage() {
                     onClose={() => setSelectedOrder(null)}
                 />
             )}
+        </>
     );
 }

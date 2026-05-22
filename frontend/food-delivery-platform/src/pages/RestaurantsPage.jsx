@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { ROUTES } from "../utils/roleRoutes.js";
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Search, X, Filter, ChevronRight, Star, Clock, MapPin } from 'lucide-react';
 import './styles/RestaurantsPage.css';
 import { getAllBusinessAccounts } from "../api/Account.jsx";
-import { ROUTES } from "../utils/roleRoutes.js";
 import { resolveRestaurantImage, handleImageError } from "../utils/images.js";
 
 const RestaurantsPage = () => {
@@ -20,23 +20,31 @@ const RestaurantsPage = () => {
             setLoading(true);
             try {
                 setLoadError(null);
-                const response = await getAllBusinessAccounts();
+                const list = await getAllBusinessAccounts();
                 setRestaurants(
-                    response.map(r => ({
+                    list.map((r) => ({
                         id: r.id,
                         name: r.name,
                         image: resolveRestaurantImage(r, r.id, r.name),
                         imageUrl: r.imageUrl,
                         description: r.description,
-                        // бо бек поки не повертає рейтинг/доставку — ставимо заглушки
                         rating: 4.8,
                         deliveryTime: "25-40 хв",
                         deliveryPrice: "Безкоштовно",
-                        category: r.description ?? "Ресторан"
+                        category: r.description || "Ресторан",
                     }))
                 );
             } catch (e) {
                 console.error("Помилка отримання бізнес акаунтів:", e);
+                const status = e?.response?.status;
+                if (status === 401) {
+                    setLoadError("Увійдіть в акаунт, щоб переглянути заклади.");
+                } else {
+                    setLoadError(
+                        "Не вдалося завантажити заклади. Перевірте, що UserService запущений (порт 5001)."
+                    );
+                }
+                setRestaurants([]);
             } finally {
                 setLoading(false);
             }
@@ -149,6 +157,19 @@ const RestaurantsPage = () => {
                             >
                                 <p>Завантаження закладів…</p>
                             </motion.div>
+                        ) : loadError ? (
+                            <motion.div
+                                key="error"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="no-results restaurants-error"
+                            >
+                                <Store size={48} strokeWidth={1.2} />
+                                <p>{loadError}</p>
+                                <Link to={ROUTES.login} className="restaurants-retry-btn">
+                                    Увійти
+                                </Link>
+                            </motion.div>
                         ) : filteredAndSorted.length === 0 ? (
                             <motion.div
                                 key="no-results"
@@ -157,8 +178,12 @@ const RestaurantsPage = () => {
                                 className="no-results"
                             >
                                 <Store size={48} strokeWidth={1.2} />
-                                <p>Нічого не знайдено</p>
-                                <span>Спробуйте змінити пошук або фільтри</span>
+                                <p>{restaurants.length === 0 ? "Закладів поки немає" : "Нічого не знайдено"}</p>
+                                <span>
+                                    {restaurants.length === 0
+                                        ? "Додайте бізнес-акаунт або перезапустіть UserService"
+                                        : "Спробуйте змінити пошук або фільтри"}
+                                </span>
                             </motion.div>
                         ) : (
                             <motion.div className="restaurants-grid">
