@@ -8,10 +8,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DF.OrderService.Domain\DF.OrderService.Domain.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="DF.Contracts" Version="1.0.0-preview9" />
+      <ProjectReference Include="..\..\Contracts\DF.Contracts\DF.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

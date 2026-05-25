@@ -7,19 +7,20 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_PROXY_USER_API_TARGET: http://df.userservice.api:8080
+      VITE_PROXY_USER_API_TARGET: http://df.userservice.api:5000
       VITE_PROXY_ORDER_API_TARGET: http://df.orderservice.api:8080
       VITE_PROXY_FOOD_SPLIT_API_TARGET: http://food-split-service:5010
-      # These services are not fully present in this repo, so Docker forwards
-      # frontend proxy traffic to the host if you run them separately.
-      VITE_PROXY_MENU_API_TARGET: http://host.docker.internal:5004
-      VITE_PROXY_TRACKING_API_TARGET: http://host.docker.internal:5006
-      VITE_PROXY_PROMO_API_TARGET: http://host.docker.internal:5007
+      VITE_PROXY_MENU_API_TARGET: http://df.menuservice.api:8080
+      VITE_PROXY_TRACKING_API_TARGET: http://df.trackingservice.api:8080
+      VITE_PROXY_PROMO_API_TARGET: http://df.promoservice.api:8080
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
       - df.userservice.api
       - df.orderservice.api
+      - df.menuservice.api
+      - df.trackingservice.api
+      - df.promoservice.api
       - food-split-service
 
   rabbitmq:
@@ -28,12 +29,6 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
 
   df.orderservice.db:
     image: postgres:16
@@ -55,8 +50,8 @@ services:
 
   df.orderservice.api:
     build:
-      context: ./backend/OrderService
-      dockerfile: DF.OrderService.API/Dockerfile
+      context: ./backend
+      dockerfile: OrderService/DF.OrderService.API/Dockerfile
     container_name: df.orderservice.api
     ports:
       - "5005:8080"
@@ -75,9 +70,11 @@ services:
       df.orderservice.db:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
+    restart: unless-stopped
 
   mssql:
+    platform: linux/amd64
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: mssql
     environment:
@@ -89,31 +86,34 @@ services:
       - mssql_data:/var/opt/mssql
 
   mssql-init:
-    image: mcr.microsoft.com/mssql-tools18
+    platform: linux/amd64
+    image: mcr.microsoft.com/mssql-tools:latest
     container_name: mssql-init
     depends_on:
-      - mssql
+      mssql:
+        condition: service_started
     environment:
       MSSQL_SA_PASSWORD: StrongPass123!
     volumes:
       - ./backend/UserService/init.sql:/init.sql:ro
     entrypoint: >
-      /bin/bash -c "
-      sleep 20;
-      /opt/mssql-tools18/bin/sqlcmd -C -S mssql -U sa -P \"$${MSSQL_SA_PASSWORD}\" -i /init.sql
+      /bin/sh -c "
+      until /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" >/dev/null 2>&1; do
+        echo 'Waiting for MSSQL...';
+        sleep 5;
+      done;
+      /opt/mssql-tools/bin/sqlcmd -S mssql -U sa -P \"$${MSSQL_SA_PASSWORD}\" -i /init.sql
       "
     restart: "no"
 
   df.userservice.api:
-    build:
-      context: ./backend/UserService
-      dockerfile: DF.UserService.API/Dockerfile
+    image: df.userservice.api:latest
     container_name: df.userservice.api
     ports:
-      - "5001:8080"
+      - "5001:5000"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_URLS: http://+:5000
       ConnectionStrings__UserServiceMSSQLDatabase: Server=mssql,1433;Database=UserServiceDb;User Id=DFUserService;Password=UserService2025!;TrustServerCertificate=True
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__UserName: guest
@@ -124,9 +124,127 @@ services:
       Jwt__Audience: df.userservice.client
     depends_on:
       rabbitmq:
-        condition: service_healthy
+        condition: service_started
       mssql-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+
+  df.menuservice.db:
+    image: postgres:16
+    container_name: df.menuservice.db
+    environment:
+      POSTGRES_USER: MenuService
+      POSTGRES_PASSWORD: MenuService2025!
+      POSTGRES_DB: MenuServiceDb
+    ports:
+      - "5436:5432"
+    volumes:
+      - menu_service_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U MenuService -d MenuServiceDb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  df.redis:
+    image: redis:7
+    container_name: df.redis
+    ports:
+      - "6379:6379"
+
+  df.menuservice.api:
+    image: df.menuservice.api:latest
+    container_name: df.menuservice.api
+    ports:
+      - "5004:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=df.menuservice.db;Port=5432;Database=MenuServiceDb;Username=MenuService;Password=MenuService2025!
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: "5672"
+      Redis__Host: df.redis
+      Redis__Port: "6379"
+      Redis__InstanceName: MenuServiceCache
+      Redis__DefaultDatabase: "0"
+      Redis__Ssl: "false"
+      Jwt__Key: food-delivery-platform-jwt-key-1234567890!
+      Jwt__Issuer: df.userservice
+      Jwt__Audience: df.userservice.client
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      df.menuservice.db:
+        condition: service_healthy
+      df.redis:
+        condition: service_started
+    restart: unless-stopped
+
+  df.trackingservice.db:
+    image: postgis/postgis:16-3.4
+    container_name: df.trackingservice.db
+    environment:
+      POSTGRES_USER: TrackingService
+      POSTGRES_PASSWORD: TrackingService2025!
+      POSTGRES_DB: TrackingServiceDb
+    ports:
+      - "5437:5432"
+    volumes:
+      - tracking_service_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U TrackingService -d TrackingServiceDb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  df.trackingservice.mongo:
+    image: mongo:7
+    container_name: df.trackingservice.mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_DATABASE: TrackingServiceMongoDb
+    volumes:
+      - tracking_mongo_data:/data/db
+      - ./docker/tracking-mongo-init.js:/docker-entrypoint-initdb.d/tracking-mongo-init.js:ro
+
+  df.trackingservice.api:
+    image: df.trackingservice.api:latest
+    container_name: df.trackingservice.api
+    ports:
+      - "5006:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=df.trackingservice.db;Port=5432;Database=TrackingServiceDb;Username=TrackingService;Password=TrackingService2025!
+      ConnectionStrings__MongoDdConnection: mongodb://TrackingService:TrackingService2025!@df.trackingservice.mongo:27017/TrackingServiceMongoDb
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: "5672"
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      df.trackingservice.db:
+        condition: service_healthy
+      df.trackingservice.mongo:
+        condition: service_started
+    restart: unless-stopped
+
+  df.promoservice.api:
+    image: df.promoservice.api:latest
+    container_name: df.promoservice.api
+    ports:
+      - "5007:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
 
   food-split-service:
     build:
@@ -148,7 +266,11 @@ services:
         condition: service_healthy
       df.orderservice.api:
         condition: service_started
+    restart: unless-stopped
 
 volumes:
   order_service_data:
   mssql_data:
+  menu_service_data:
+  tracking_service_data:
+  tracking_mongo_data:
