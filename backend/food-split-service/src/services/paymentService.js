@@ -144,10 +144,20 @@ export async function runPaymentTimeoutSweep() {
   }
 }
 
+export function resolvePaymentIntentId(body) {
+  return body?.data?.object?.id || body?.paymentIntentId || null;
+}
+
+export function isAuthorizableWebhookEvent(body) {
+  return (
+    body?.type === "payment_intent.amount_capturable_updated" || body?.event === "authorized"
+  );
+}
+
 export function handleWebhookEvent(body) {
-  const intentId = body?.data?.object?.id || body?.paymentIntentId;
+  const intentId = resolvePaymentIntentId(body);
   if (!intentId) return { ignored: true };
-  if (body.type === "payment_intent.amount_capturable_updated" || body.event === "authorized") {
+  if (isAuthorizableWebhookEvent(body)) {
     return authorizePayment(intentId);
   }
   return { ignored: true };

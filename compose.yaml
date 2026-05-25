@@ -1,0 +1,154 @@
+services:
+  frontend:
+    build:
+      context: ./frontend/food-delivery-platform
+      dockerfile: Dockerfile
+    container_name: df.frontend.dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_USER_API_TARGET: http://df.userservice.api:8080
+      VITE_PROXY_ORDER_API_TARGET: http://df.orderservice.api:8080
+      VITE_PROXY_FOOD_SPLIT_API_TARGET: http://food-split-service:5010
+      # These services are not fully present in this repo, so Docker forwards
+      # frontend proxy traffic to the host if you run them separately.
+      VITE_PROXY_MENU_API_TARGET: http://host.docker.internal:5004
+      VITE_PROXY_TRACKING_API_TARGET: http://host.docker.internal:5006
+      VITE_PROXY_PROMO_API_TARGET: http://host.docker.internal:5007
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - df.userservice.api
+      - df.orderservice.api
+      - food-split-service
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  df.orderservice.db:
+    image: postgres:16
+    container_name: df.orderservice.db
+    environment:
+      POSTGRES_USER: OrderService
+      POSTGRES_PASSWORD: OrderService2025!
+      POSTGRES_DB: OrderServiceDb
+    ports:
+      - "5435:5432"
+    volumes:
+      - order_service_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U OrderService -d OrderServiceDb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  df.orderservice.api:
+    build:
+      context: ./backend/OrderService
+      dockerfile: DF.OrderService.API/Dockerfile
+    container_name: df.orderservice.api
+    ports:
+      - "5005:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=df.orderservice.db;Port=5432;Database=OrderServiceDb;Username=OrderService;Password=OrderService2025!
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: "5672"
+      Jwt__Key: food-delivery-platform-jwt-key-1234567890!
+      Jwt__Issuer: df.userservice
+      Jwt__Audience: df.userservice.client
+    depends_on:
+      df.orderservice.db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: StrongPass123!
+    ports:
+      - "11433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+
+  mssql-init:
+    image: mcr.microsoft.com/mssql-tools18
+    container_name: mssql-init
+    depends_on:
+      - mssql
+    environment:
+      MSSQL_SA_PASSWORD: StrongPass123!
+    volumes:
+      - ./backend/UserService/init.sql:/init.sql:ro
+    entrypoint: >
+      /bin/bash -c "
+      sleep 20;
+      /opt/mssql-tools18/bin/sqlcmd -C -S mssql -U sa -P \"$${MSSQL_SA_PASSWORD}\" -i /init.sql
+      "
+    restart: "no"
+
+  df.userservice.api:
+    build:
+      context: ./backend/UserService
+      dockerfile: DF.UserService.API/Dockerfile
+    container_name: df.userservice.api
+    ports:
+      - "5001:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__UserServiceMSSQLDatabase: Server=mssql,1433;Database=UserServiceDb;User Id=DFUserService;Password=UserService2025!;TrustServerCertificate=True
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: "5672"
+      Jwt__Key: food-delivery-platform-jwt-key-1234567890!
+      Jwt__Issuer: df.userservice
+      Jwt__Audience: df.userservice.client
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      mssql-init:
+        condition: service_completed_successfully
+
+  food-split-service:
+    build:
+      context: ./backend/food-split-service
+      dockerfile: Dockerfile
+    container_name: food-split-service
+    ports:
+      - "5010:5010"
+    environment:
+      PORT: 5010
+      DATABASE_URL: postgresql://OrderService:OrderService2025!@df.orderservice.db:5432/OrderServiceDb
+      JWT_SECRET: food-delivery-platform-jwt-key-1234567890!
+      JWT_ISSUER: df.userservice
+      JWT_AUDIENCE: df.userservice.client
+      ORDER_SERVICE_URL: http://df.orderservice.api:8080/api/Order
+      CORS_ORIGIN: http://localhost:5173
+    depends_on:
+      df.orderservice.db:
+        condition: service_healthy
+      df.orderservice.api:
+        condition: service_started
+
+volumes:
+  order_service_data:
+  mssql_data:

@@ -1,6 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const userApiTarget = process.env.VITE_PROXY_USER_API_TARGET || "http://localhost:5001"
+const menuApiTarget = process.env.VITE_PROXY_MENU_API_TARGET || "http://localhost:5004"
+const orderApiTarget = process.env.VITE_PROXY_ORDER_API_TARGET || "http://localhost:5005"
+const trackingApiTarget = process.env.VITE_PROXY_TRACKING_API_TARGET || "http://localhost:5006"
+const promoApiTarget = process.env.VITE_PROXY_PROMO_API_TARGET || "http://localhost:5007"
+const foodSplitApiTarget = process.env.VITE_PROXY_FOOD_SPLIT_API_TARGET || "http://localhost:5010"
+const osrmApiTarget = process.env.VITE_PROXY_OSRM_TARGET || "https://router.project-osrm.org"
+const nominatimApiTarget = process.env.VITE_PROXY_NOMINATIM_TARGET || "https://nominatim.openstreetmap.org"
+
 // Dev URLs:
 //   npm run dev          → http://localhost:5173/food-delivery-platform/  (port 5173, strict)
 //   npm run dev:redirect → http://localhost:5174/ → 302 to the URL above (run both in dev)
@@ -24,54 +33,54 @@ export default defineConfig({
                 rewrite: (path) => path.replace(/^\/images/, ""),
             },
             "/api/dish": {
-                target: "http://localhost:5004",
+                target: menuApiTarget,
                 changeOrigin: true,
             },
             "/api/menu": {
-                target: "http://localhost:5004",
+                target: menuApiTarget,
                 changeOrigin: true,
             },
             "/api/order": {
-                target: "http://localhost:5005",
+                target: orderApiTarget,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api\/order/i, "/api/Order"),
             },
             "/api/orders": {
-                target: "http://localhost:5005",
+                target: orderApiTarget,
                 changeOrigin: true,
             },
             "/api/tracking": {
-                target: "http://localhost:5006",
+                target: trackingApiTarget,
                 changeOrigin: true,
             },
             "/api/promos": {
-                target: "http://localhost:5007",
+                target: promoApiTarget,
                 changeOrigin: true,
             },
             "/api/food-split": {
-                target: "http://localhost:5010",
+                target: foodSplitApiTarget,
                 changeOrigin: true,
             },
             "/socket.io": {
-                target: "http://localhost:5010",
+                target: foodSplitApiTarget,
                 changeOrigin: true,
                 ws: true,
             },
             "/webhooks": {
-                target: "http://localhost:5010",
+                target: foodSplitApiTarget,
                 changeOrigin: true,
             },
             "/api": {
-                target: "http://localhost:5001",
+                target: userApiTarget,
                 changeOrigin: true,
             },
             "/osrm": {
-                target: "https://router.project-osrm.org",
+                target: osrmApiTarget,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/osrm/, ""),
             },
             "/nominatim": {
-                target: "https://nominatim.openstreetmap.org",
+                target: nominatimApiTarget,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/nominatim/, ""),
             },

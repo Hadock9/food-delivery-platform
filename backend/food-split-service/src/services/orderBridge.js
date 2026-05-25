@@ -3,6 +3,30 @@ import { config } from "../config.js";
 import { query } from "../db.js";
 import { GroupSessionStatus } from "../enums.js";
 
+const PLACEHOLDER_ORDER_ID = "00000000-0000-0000-0000-000000000000";
+
+export function buildOrderPayload(session, items, hostParticipant, orderDate = new Date()) {
+  const orderedBy = hostParticipant?.UserId || session.HostUserId;
+
+  const dishes = items.map((i) => ({
+    orderId: PLACEHOLDER_ORDER_ID,
+    dishId: i.MenuItemId,
+  }));
+
+  const totalPrice = items.reduce((s, i) => s + Number(i.Price) * i.Quantity, 0);
+
+  return {
+    businessId: session.BusinessId,
+    orderedBy,
+    orderDate: orderDate.toISOString(),
+    totalPrice,
+    deliveredBy: null,
+    deliverFrom: { fullAddress: "Food Split — pickup" },
+    deliverTo: { fullAddress: "Food Split — delivery" },
+    dishes,
+  };
+}
+
 /**
  * Після успішного capture — створюємо замовлення в OrderService (.NET).
  */
@@ -20,28 +44,8 @@ export async function createOrderFromSession(sessionId, accessToken) {
     `SELECT * FROM "Participants" WHERE "GroupSessionId" = $1 AND "UserId" = $2 LIMIT 1`,
     [sessionId, session.HostUserId]
   );
-  const orderedBy = hostParticipant.rows[0]?.UserId || session.HostUserId;
 
-  const dishes = itemsRes.rows.map((i) => ({
-    orderId: "00000000-0000-0000-0000-000000000000",
-    dishId: i.MenuItemId,
-  }));
-
-  const totalPrice = itemsRes.rows.reduce(
-    (s, i) => s + Number(i.Price) * i.Quantity,
-    0
-  );
-
-  const payload = {
-    businessId: session.BusinessId,
-    orderedBy,
-    orderDate: new Date().toISOString(),
-    totalPrice,
-    deliveredBy: null,
-    deliverFrom: { fullAddress: "Food Split — pickup" },
-    deliverTo: { fullAddress: "Food Split — delivery" },
-    dishes,
-  };
+  const payload = buildOrderPayload(session, itemsRes.rows, hostParticipant.rows[0]);
 
   const headers = {};
   if (accessToken) {

@@ -2,6 +2,47 @@ import { query } from "../db.js";
 import { randomUUID, randomBytes } from "crypto";
 import { GroupSessionStatus } from "../enums.js";
 
+const STATUS_LABELS = ["OPEN", "PAYMENT_PROCESSING", "COMPLETED", "CANCELLED"];
+
+export function buildRoomState(session, participantRows, itemRows) {
+  const participants = participantRows.map((p) => ({
+    id: p.Id,
+    userId: p.UserId,
+    name: p.Name,
+    paymentStatus: p.PaymentStatus,
+    isHost: p.UserId === session.HostUserId,
+    itemCount: itemRows.filter((i) => i.ParticipantId === p.Id).length,
+  }));
+
+  const items = itemRows.map((i) => ({
+    id: i.Id,
+    participantId: i.ParticipantId,
+    menuItemId: i.MenuItemId,
+    quantity: i.Quantity,
+    price: Number(i.Price),
+    notes: i.Notes,
+    lineTotal: Number(i.Price) * i.Quantity,
+  }));
+
+  const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
+
+  return {
+    session: {
+      id: session.Id,
+      hostUserId: session.HostUserId,
+      businessId: session.BusinessId,
+      status: session.Status,
+      statusLabel: STATUS_LABELS[session.Status],
+      expiresAt: session.ExpiresAt,
+      orderId: session.OrderId,
+      editable: session.Status === GroupSessionStatus.Open,
+    },
+    participants,
+    items,
+    subtotal,
+  };
+}
+
 export async function createSession({ hostUserId, businessId, expiresInMinutes = 120 }) {
   const id = randomUUID();
   const token = randomBytes(16).toString("hex");
@@ -42,42 +83,7 @@ export async function getRoomState(sessionId) {
     [sessionId]
   );
 
-  const participants = participantsRes.rows.map((p) => ({
-    id: p.Id,
-    userId: p.UserId,
-    name: p.Name,
-    paymentStatus: p.PaymentStatus,
-    isHost: p.UserId === session.HostUserId,
-    itemCount: itemsRes.rows.filter((i) => i.ParticipantId === p.Id).length,
-  }));
-
-  const items = itemsRes.rows.map((i) => ({
-    id: i.Id,
-    participantId: i.ParticipantId,
-    menuItemId: i.MenuItemId,
-    quantity: i.Quantity,
-    price: Number(i.Price),
-    notes: i.Notes,
-    lineTotal: Number(i.Price) * i.Quantity,
-  }));
-
-  const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
-
-  return {
-    session: {
-      id: session.Id,
-      hostUserId: session.HostUserId,
-      businessId: session.BusinessId,
-      status: session.Status,
-      statusLabel: ["OPEN", "PAYMENT_PROCESSING", "COMPLETED", "CANCELLED"][session.Status],
-      expiresAt: session.ExpiresAt,
-      orderId: session.OrderId,
-      editable: session.Status === GroupSessionStatus.Open,
-    },
-    participants,
-    items,
-    subtotal,
-  };
+  return buildRoomState(session, participantsRes.rows, itemsRes.rows);
 }
 
 export async function addCartItem({ sessionId, participantId, menuItemId, quantity, price, notes }) {

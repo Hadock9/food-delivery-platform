@@ -1,26 +1,21 @@
 import { query } from "../db.js";
 import { config } from "../config.js";
 
-/**
- * Розрахунок частки кожного учасника:
- * сума страв + пропорційна частка доставки, сервісного збору та чайових.
- */
-export async function calculateSplit(sessionId, overrides = {}) {
-  const deliveryFee = overrides.deliveryFee ?? config.fees.delivery;
-  const serviceFeePercent = overrides.serviceFeePercent ?? config.fees.servicePercent;
-  const tipsPercent = overrides.tipsPercent ?? config.fees.tipsPercent;
+const defaultFees = () => ({
+  deliveryFee: config.fees.delivery,
+  serviceFeePercent: config.fees.servicePercent,
+  tipsPercent: config.fees.tipsPercent,
+});
 
-  const itemsRes = await query(
-    `SELECT c.*, p."Name" as participant_name, p."Id" as pid
-     FROM "GroupCartItems" c
-     JOIN "Participants" p ON p."Id" = c."ParticipantId"
-     WHERE c."GroupSessionId" = $1`,
-    [sessionId]
-  );
+/**
+ * Розрахунок частки кожного учасника з рядків кошика (без БД).
+ */
+export function buildSplitFromRows(sessionId, rows, overrides = {}) {
+  const fees = { ...defaultFees(), ...overrides };
 
   const byParticipant = new Map();
 
-  for (const row of itemsRes.rows) {
+  for (const row of rows) {
     const pid = row.pid;
     if (!byParticipant.has(pid)) {
       byParticipant.set(pid, {
@@ -49,10 +44,10 @@ export async function calculateSplit(sessionId, overrides = {}) {
     return {
       sessionId,
       foodSubtotal: 0,
-      deliveryFee,
+      deliveryFee: fees.deliveryFee,
       serviceFee: 0,
       tips: 0,
-      grandTotal: deliveryFee,
+      grandTotal: fees.deliveryFee,
       participants: participants.map((p) => ({
         ...p,
         shareOfExtras: 0,
@@ -61,9 +56,9 @@ export async function calculateSplit(sessionId, overrides = {}) {
     };
   }
 
-  const serviceFee = Math.round((foodSubtotal * serviceFeePercent) / 100);
-  const tips = Math.round((foodSubtotal * tipsPercent) / 100);
-  const extrasPool = deliveryFee + serviceFee + tips;
+  const serviceFee = Math.round((foodSubtotal * fees.serviceFeePercent) / 100);
+  const tips = Math.round((foodSubtotal * fees.tipsPercent) / 100);
+  const extrasPool = fees.deliveryFee + serviceFee + tips;
 
   const splits = participants.map((p) => {
     const ratio = p.itemsSubtotal / foodSubtotal;
@@ -73,7 +68,7 @@ export async function calculateSplit(sessionId, overrides = {}) {
       ...p,
       ratio,
       shareOfExtras,
-      deliveryShare: Math.round(deliveryFee * ratio * 100) / 100,
+      deliveryShare: Math.round(fees.deliveryFee * ratio * 100) / 100,
       serviceShare: Math.round(serviceFee * ratio * 100) / 100,
       tipsShare: Math.round(tips * ratio * 100) / 100,
       totalDue,
@@ -85,11 +80,27 @@ export async function calculateSplit(sessionId, overrides = {}) {
   return {
     sessionId,
     foodSubtotal,
-    deliveryFee,
+    deliveryFee: fees.deliveryFee,
     serviceFee,
     tips,
     extrasPool,
     grandTotal,
     participants: splits,
   };
+}
+
+/**
+ * Розрахунок частки кожного учасника:
+ * сума страв + пропорційна частка доставки, сервісного збору та чайових.
+ */
+export async function calculateSplit(sessionId, overrides = {}) {
+  const itemsRes = await query(
+    `SELECT c.*, p."Name" as participant_name, p."Id" as pid
+     FROM "GroupCartItems" c
+     JOIN "Participants" p ON p."Id" = c."ParticipantId"
+     WHERE c."GroupSessionId" = $1`,
+    [sessionId]
+  );
+
+  return buildSplitFromRows(sessionId, itemsRes.rows, overrides);
 }
