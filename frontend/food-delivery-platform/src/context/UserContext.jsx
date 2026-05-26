@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { getProfileData, switchAccount } from "../api/Profile.jsx";
 import { refresh, logout } from "../api/Auth.jsx";
 import { accountTypeToStorageValue } from "../utils/accountRole.js";
+import { CURRENT_SYSTEM_ROLE_KEY, isAdminEligible } from "../utils/appRole.js";
 
 const UserContext = createContext();
 
@@ -10,6 +11,9 @@ export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [accounts, setAccounts] = useState([]);
     const [currentAccountId, setCurrentAccountId] = useState(null);
+    const [currentSystemRole, setCurrentSystemRole] = useState(
+        localStorage.getItem(CURRENT_SYSTEM_ROLE_KEY)
+    );
     const [loading, setLoading] = useState(true);
 
     const loadUser = async () => {
@@ -22,10 +26,10 @@ export const UserProvider = ({ children }) => {
             setUser(data.user);
             setAccounts(data.accounts);
             setCurrentAccountId(data.currentAccount.id);
+            const adminEligible = isAdminEligible(data.user);
 
             // Зберігаємо accountType у localStorage
             const currentAcc = data.accounts.find(a => a.id === data.currentAccount.id);
-            console.log(currentAcc);
 
             if (currentAcc) {
                 const storedType = accountTypeToStorageValue(currentAcc.accountType);
@@ -33,6 +37,16 @@ export const UserProvider = ({ children }) => {
                     localStorage.setItem("currentAccountType", storedType);
                 }
                 localStorage.setItem("currentAccountId", data.currentAccount.id);
+            }
+
+            const storedSystemRole = localStorage.getItem(CURRENT_SYSTEM_ROLE_KEY);
+            if (adminEligible) {
+                const nextSystemRole = storedSystemRole ?? "Admin";
+                localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, nextSystemRole);
+                setCurrentSystemRole(nextSystemRole);
+            } else {
+                localStorage.removeItem(CURRENT_SYSTEM_ROLE_KEY);
+                setCurrentSystemRole(null);
             }
             return data;
         } catch (err) {
@@ -52,6 +66,8 @@ export const UserProvider = ({ children }) => {
 
     const handleSwitchAccount = async (accountId) => {
         try {
+            localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, "Account");
+            setCurrentSystemRole("Account");
             let token = localStorage.getItem("accessToken");
             if (!token) {
                 const tokens = await refresh();
@@ -65,6 +81,16 @@ export const UserProvider = ({ children }) => {
             window.location.reload();
         } catch (err) {
             console.error("Switch account error:", err);
+        }
+    };
+
+    const handleSwitchSystemRole = (role) => {
+        if (role) {
+            localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, role);
+            setCurrentSystemRole(role);
+        } else {
+            localStorage.removeItem(CURRENT_SYSTEM_ROLE_KEY);
+            setCurrentSystemRole(null);
         }
     };
 
@@ -85,9 +111,11 @@ export const UserProvider = ({ children }) => {
                 user,
                 accounts,
                 currentAccountId,
+                currentSystemRole,
                 loading,
                 reloadUser: loadUser,
                 switchAccount: handleSwitchAccount,
+                switchSystemRole: handleSwitchSystemRole,
                 logout: handleLogout,
             }}
         >

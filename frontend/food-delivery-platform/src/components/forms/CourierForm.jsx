@@ -3,6 +3,7 @@ import { createAccount } from "../../api/Account.jsx";
 import "../styles/FormBase.css";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
+import { fileToDataUrl, saveStoredAccountImage } from "../../utils/accountImages.js";
 
 export default function CourierForm() {
     const navigate = useNavigate();
@@ -83,7 +84,11 @@ export default function CourierForm() {
         };
 
         try {
-            await createAccount("courier", account);
+            const created = await createAccount("courier", account);
+            if (formData.photoFile && created?.id) {
+                const imageDataUrl = await fileToDataUrl(formData.photoFile);
+                saveStoredAccountImage(created.id, imageDataUrl);
+            }
             await reloadUser();
             navigate("/profile");
         } catch (err) {

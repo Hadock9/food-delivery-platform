@@ -1,19 +1,18 @@
 import React, { useMemo } from "react";
 import { Navigate } from "react-router-dom";
 import { useUser } from "../context/UserContext.jsx";
-import { resolveAccountRole } from "../utils/accountRole.js";
+import { resolveAppRole } from "../utils/appRole.js";
 import { ROUTES, homePathForRole } from "../utils/roleRoutes.js";
 import UnauthenticatedHome from "../components/UnauthenticatedHome.jsx";
 
 /** `/` — гість бачить лендінг, авторизований — редірект у свою зону */
 export default function RoleHomeRedirect() {
-    const { user, accounts, currentAccountId, loading } = useUser();
+    const { user, accounts, currentAccountId, currentSystemRole, loading } = useUser();
     const token = localStorage.getItem("accessToken");
 
     const role = useMemo(() => {
-        const acc = accounts.find((a) => a.id === currentAccountId) ?? accounts[0];
-        return resolveAccountRole(acc?.accountType);
-    }, [accounts, currentAccountId]);
+        return resolveAppRole(user, accounts, currentAccountId, currentSystemRole);
+    }, [user, accounts, currentAccountId, currentSystemRole]);
 
     if (loading) {
         return (

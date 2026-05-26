@@ -27,11 +27,11 @@ function MapFitBounds({ points }) {
   useEffect(() => {
     if (!points?.length) return;
     if (points.length === 1) {
-      map.setView(points[0], 14);
+      map.setView(points[0], 14, { animate: false });
       return;
     }
     const bounds = L.latLngBounds(points);
-    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
+    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: false });
   }, [points, map]);
   return null;
 }
@@ -243,7 +243,6 @@ export default function DeliveryMapWidget({
 
       <div className="dmw-map" style={{ height }}>
         <MapContainer
-          key={mapPoints.length ? `map-${mapPoints.length}-${center[0]}` : "map-default"}
           center={center}
           zoom={mapPoints.length >= 2 ? 12 : 13}
           scrollWheelZoom={!compact}

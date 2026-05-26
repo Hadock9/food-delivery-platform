@@ -59,13 +59,28 @@ export const refresh = async () => {
 };
 
 export const logout = async () => {
-    await authApi.post("/revoke", {}, { withCredentials: true });
+    try {
+        await authApi.post("/revoke", {}, { withCredentials: true });
+    } catch (error) {
+        if (error?.response?.status && error.response.status !== 404) throw error;
+        await authApi.post("/logout", {}, { withCredentials: true });
+    }
     clearTokens();
 };
 
 function saveTokens(tokens) {
-    localStorage.setItem("accessToken", tokens.accessToken);
-    localStorage.setItem("accessTokenExpiresAt", tokens.accessTokenExpiresAt);
+    const accessToken = tokens?.accessToken ?? tokens?.token ?? tokens?.Token;
+    const accessTokenExpiresAt =
+        tokens?.accessTokenExpiresAt ??
+        tokens?.expiresAt ??
+        tokens?.ExpiresAt ??
+        "";
+
+    if (!accessToken) return;
+    localStorage.setItem("accessToken", accessToken);
+    if (accessTokenExpiresAt) {
+        localStorage.setItem("accessTokenExpiresAt", accessTokenExpiresAt);
+    }
 }
 
 function clearTokens() {

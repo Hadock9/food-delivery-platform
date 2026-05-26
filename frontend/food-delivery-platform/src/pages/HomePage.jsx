@@ -5,12 +5,13 @@ import UnauthenticatedHome from '../components/UnauthenticatedHome';
 import CustomerHomePage from '../components/CustomerHomePage.jsx';
 import BusinessDashboardHome from '../components/business/BusinessDashboardHome.jsx';
 import CourierHomePage from '../components/curier/CourierHomePage.jsx';
+import AdminHomePage from './AdminHomePage.jsx';
 import { useUser } from '../context/UserContext.jsx';
-import { resolveAccountRole } from '../utils/accountRole.js';
+import { resolveAppRole } from '../utils/appRole.js';
 import { buildBusinessUserData } from '../utils/businessUserData.js';
 
 const HomePage = () => {
-    const { user, accounts, currentAccountId, loading } = useUser();
+    const { user, accounts, currentAccountId, currentSystemRole, loading } = useUser();
     const token = localStorage.getItem('accessToken');
 
     const userData = useMemo(() => {
@@ -28,10 +29,10 @@ const HomePage = () => {
         };
     }, [user, accounts, currentAccountId]);
 
-    const accountType = useMemo(() => {
-        const acc = accounts.find((a) => a.id === currentAccountId) ?? accounts[0];
-        return resolveAccountRole(acc?.accountType)?.toLowerCase() ?? null;
-    }, [accounts, currentAccountId]);
+    const appRole = useMemo(
+        () => resolveAppRole(user, accounts, currentAccountId, currentSystemRole),
+        [user, accounts, currentAccountId, currentSystemRole]
+    );
 
     const businessUserData = useMemo(
         () => buildBusinessUserData(user, accounts, currentAccountId),
@@ -58,12 +59,14 @@ const HomePage = () => {
         return <UnauthenticatedHome />;
     }
 
-    switch (accountType) {
-        case 'customer':
+    switch (appRole) {
+        case 'Admin':
+            return <AdminHomePage />;
+        case 'Customer':
             return <CustomerHomePage userData={userData} />;
-        case 'business':
+        case 'Business':
             return <BusinessDashboardHome userData={businessUserData} />;
-        case 'courier':
+        case 'Courier':
             return <CourierHomePage userData={userData} />;
         default:
             return <UnauthenticatedHome />;

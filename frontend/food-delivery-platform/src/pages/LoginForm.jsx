@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { login, getAuthErrorMessage } from '../api/Auth.jsx';
 import { useUser } from '../context/UserContext.jsx';
-import { resolveAccountRole } from '../utils/accountRole.js';
+import { resolveAppRole } from '../utils/appRole.js';
 import { homePathForRole, ROUTES } from '../utils/roleRoutes.js';
 import './styles/LoginForm.css';
 
@@ -29,7 +29,7 @@ const LoginForm = () => {
             await login(formData);
             const profile = await reloadUser();
 
-            const role = resolveAccountRole(profile?.currentAccount?.accountType);
+            const role = resolveAppRole(profile?.user, profile?.accounts, profile?.currentAccount?.id, null);
             const target =
                 returnTo && returnTo !== "/" && returnTo !== ROUTES.home
                     ? returnTo

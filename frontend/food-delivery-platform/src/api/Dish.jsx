@@ -1,5 +1,6 @@
 import axios from "axios";
 import {CategoryMap} from "../constants/category.jsx";
+import seedCustomerDishes from "../generated/seedCustomerDishes.js";
 
 const API_BASE =
     import.meta.env.VITE_MENU_API_URL ||
@@ -19,22 +20,129 @@ dishApi.interceptors.request.use((config) => {
     return config;
 });
 
+const FALLBACK_STATUSES = new Set([401, 403, 404]);
+
+function toFiniteNumber(value, fallback = 0) {
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? normalized : fallback;
+}
+
+function normalizeIngredient(raw) {
+    if (!raw) return null;
+    return {
+        id: raw.id ?? raw.Id ?? null,
+        name: raw.name ?? raw.Name ?? "",
+        weight: toFiniteNumber(raw.weight ?? raw.Weight, 0),
+    };
+}
+
+function normalizeDish(raw) {
+    if (!raw) return null;
+
+    const businessDetails = raw.businessDetails ?? raw.BusinessDetails ?? raw.business ?? null;
+    const businessId =
+        raw.businessId ??
+        raw.BusinessId ??
+        businessDetails?.id ??
+        businessDetails?.Id ??
+        null;
+
+    const businessName =
+        businessDetails?.name ??
+        businessDetails?.Name ??
+        raw.businessName ??
+        raw.BusinessName ??
+        "Ресторан";
+
+    return {
+        id: raw.id ?? raw.Id ?? null,
+        menuId: raw.menuId ?? raw.MenuId ?? null,
+        name: raw.name ?? raw.Name ?? "Страва",
+        description: raw.description ?? raw.Description ?? "",
+        imageUrl: raw.imageUrl ?? raw.ImageUrl ?? raw.image ?? raw.Image ?? "",
+        price: toFiniteNumber(raw.price ?? raw.Price, 0),
+        category: toFiniteNumber(raw.category ?? raw.Category, 0),
+        businessId,
+        cookingTime: toFiniteNumber(raw.cookingTime ?? raw.CookingTime, 0),
+        ingredients: (raw.ingredients ?? raw.Ingredients ?? [])
+            .map(normalizeIngredient)
+            .filter(Boolean),
+        businessDetails: businessId
+            ? { id: businessId, name: businessName }
+            : null,
+    };
+}
+
+function loadSeedCustomerDishes() {
+    return Array.isArray(seedCustomerDishes)
+        ? seedCustomerDishes.map(normalizeDish).filter(Boolean)
+        : [];
+}
+
+function shouldUseSeedFallback(error) {
+    const status = error?.response?.status;
+    return !status || FALLBACK_STATUSES.has(status) || status >= 500;
+}
+
+function getSeedDishesByBusinessId(businessId) {
+    return loadSeedCustomerDishes().filter(
+        (item) => String(item.businessId) === String(businessId)
+    );
+}
+
 // Отримати всі страви для customer
 export const getAllDishesForCustomer = async () => {
-    const res = await dishApi.get(`/dish/customer`);
-    return res.data;
+    try {
+        const res = await dishApi.get(`/dish/customer`);
+        const dishes = Array.isArray(res.data) ? res.data.map(normalizeDish).filter(Boolean) : [];
+        if (dishes.length > 0) return dishes;
+
+        const seeded = loadSeedCustomerDishes();
+        return seeded.length > 0 ? seeded : dishes;
+    } catch (error) {
+        const seeded = loadSeedCustomerDishes();
+        if (seeded.length > 0 && shouldUseSeedFallback(error)) {
+            return seeded;
+        }
+        throw error;
+    }
 };
 
 // Отримати страву для customer по Id
 export const getDishForCustomer = async (id) => {
-    const res = await dishApi.get(`/dish/customer/${id}`);
-    return res.data;
+    try {
+        const res = await dishApi.get(`/dish/customer/${id}`);
+        const dish = normalizeDish(res.data);
+        if (dish) return dish;
+
+        return loadSeedCustomerDishes().find((item) => String(item.id) === String(id)) ?? null;
+    } catch (error) {
+        const fallbackDish = loadSeedCustomerDishes().find((item) => String(item.id) === String(id));
+        if (fallbackDish && shouldUseSeedFallback(error)) {
+            return fallbackDish;
+        }
+        if (shouldUseSeedFallback(error)) {
+            return null;
+        }
+        throw error;
+    }
 };
 
 // Отримати страви для customer по BusinessId
 export const getDishesForCustomerByBusinessId = async (businessId) => {
-    const res = await dishApi.get(`/dish/customer/${businessId}/dish`);
-    return res.data;
+    try {
+        const res = await dishApi.get(`/dish/customer/${businessId}/dish`);
+        const dishes = Array.isArray(res.data) ? res.data.map(normalizeDish).filter(Boolean) : [];
+        if (dishes.length > 0) return dishes;
+
+        return getSeedDishesByBusinessId(businessId);
+    } catch (error) {
+        const fallbackDishes = getSeedDishesByBusinessId(businessId);
+        if (shouldUseSeedFallback(error)) {
+            return fallbackDishes;
+        }
+        throw error;
+    }
 };
 
 // Отримати всі страви (admin/business)

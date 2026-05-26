@@ -6,9 +6,6 @@ const NOMINATIM_BASE =
   import.meta.env.VITE_NOMINATIM_URL ||
   (import.meta.env.DEV ? "/nominatim" : "https://nominatim.openstreetmap.org");
 
-/** Photon (Komoot) — працює з браузера без CORS */
-const PHOTON_BASE = "https://photon.komoot.io/api/";
-
 function formatPhotonAddress(props) {
   if (!props) return null;
   const parts = [
@@ -20,24 +17,6 @@ function formatPhotonAddress(props) {
     props.country,
   ].filter(Boolean);
   return parts.join(", ") || null;
-}
-
-async function geocodePhoton(address) {
-  const q = encodeURIComponent(address.trim());
-  const res = await fetch(`${PHOTON_BASE}?q=${q}&limit=1&lang=uk`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const feature = data?.features?.[0];
-  const coords = feature?.geometry?.coordinates;
-  if (!coords?.length) return null;
-  const [lon, lat] = coords;
-  return {
-    latitude: lat,
-    longitude: lon,
-    fullAddress: formatPhotonAddress(feature.properties) || address.trim(),
-  };
 }
 
 async function geocodeNominatim(address) {
@@ -63,8 +42,7 @@ export async function geocodeAddress(address) {
   if (cache.has(key)) return cache.get(key);
 
   try {
-    let point = await geocodePhoton(address);
-    if (!point) point = await geocodeNominatim(address);
+    const point = await geocodeNominatim(address);
     if (point) cache.set(key, point);
     return point;
   } catch (e) {
@@ -85,18 +63,17 @@ export async function reverseGeocode(latitude, longitude) {
   const lon = Number(longitude);
   if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
 
-  const key = `rev:${lat.toFixed(5)},${lon.toFixed(5)}`;
+  const key = `rev:${lat.toFixed(4)},${lon.toFixed(4)}`;
   if (cache.has(key)) return cache.get(key).fullAddress;
 
   try {
     const res = await fetch(
-      `https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&lang=uk`,
-      { headers: { Accept: "application/json" } }
+      `${NOMINATIM_BASE}/reverse?format=json&lat=${lat}&lon=${lon}`,
+      { headers: { Accept: "application/json", "Accept-Language": "uk" } }
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const props = data?.features?.[0]?.properties;
-    const label = formatPhotonAddress(props);
+    const label = data?.display_name ?? null;
     if (label) cache.set(key, { fullAddress: label });
     return label;
   } catch (e) {

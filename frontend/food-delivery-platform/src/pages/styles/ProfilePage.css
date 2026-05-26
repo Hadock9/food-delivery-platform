@@ -118,6 +118,26 @@
     transition: opacity 120ms ease;
 }
 
+.avatar-upload-btn{
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform var(--transition), background var(--transition);
+}
+
+.avatar-upload-btn:hover:not(:disabled){
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.08);
+}
+
+.avatar-upload-btn:disabled{
+    opacity: 0.7;
+    cursor: wait;
+}
+
 /* User summary area */
 .user-card .meta {
     width: 100%;

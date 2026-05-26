@@ -1,4 +1,5 @@
 import axios from "axios";
+import seedBusinessCatalog from "../generated/seedBusinessCatalog.js";
 
 const USER_API_BASE =
     import.meta.env.VITE_USER_API_URL ||
@@ -8,6 +9,10 @@ const API_URL = `${USER_API_BASE}/account`;
 const accountApi = axios.create({
     baseURL: API_URL,
     withCredentials: true
+});
+
+const publicAccountApi = axios.create({
+    baseURL: API_URL,
 });
 
 accountApi.interceptors.request.use(config => {
@@ -44,11 +49,29 @@ export function normalizeBusinessAccount(raw) {
     };
 }
 
+function loadSeedBusinessCatalog() {
+    return Array.isArray(seedBusinessCatalog)
+        ? seedBusinessCatalog.map(normalizeBusinessAccount).filter(Boolean)
+        : [];
+}
+
 export const getAllBusinessAccounts = async () => {
-    const response = await accountApi.get(`/all/business`);
-    const data = response.data;
-    const list = Array.isArray(data) ? data : [];
-    return list.map(normalizeBusinessAccount).filter(Boolean);
+    try {
+        const response = await publicAccountApi.get(`/all/business`);
+        const data = response.data;
+        const list = Array.isArray(data) ? data.map(normalizeBusinessAccount).filter(Boolean) : [];
+        if (list.length > 0) return list;
+
+        const seeded = loadSeedBusinessCatalog();
+        return seeded.length > 0 ? seeded : list;
+    } catch (error) {
+        const status = error?.response?.status;
+        if (status === 401 || !error?.response) {
+            const seeded = loadSeedBusinessCatalog();
+            if (seeded.length > 0) return seeded;
+        }
+        throw error;
+    }
 };
 
 export const getAccounts = async (userId) => {

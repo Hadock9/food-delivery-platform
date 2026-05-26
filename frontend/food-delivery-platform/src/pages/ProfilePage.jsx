@@ -1,16 +1,134 @@
 ﻿import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { updateProfile } from "../api/Profile.jsx";
 import { refresh } from "../api/Auth.jsx";
+import { ADMIN_ACCOUNT_ID, buildAdminAccount, resolveAppRole } from "../utils/appRole.js";
+import { homePathForRole } from "../utils/roleRoutes.js";
+import {
+    fileToDataUrl,
+    resolveAccountImage,
+    saveStoredAccountImage,
+} from "../utils/accountImages.js";
+import {
+    resolveAccountPaymentCards,
+    saveStoredPaymentCards,
+} from "../utils/paymentCards.js";
 import "./styles/ProfilePage.css";
+
+const EMPTY_CARD_FORM = {
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    cardHolder: ""
+};
+
+const CARD_INPUT_BASE_STYLE = {
+    width: "100%",
+    padding: "12px",
+    fontSize: "15px",
+    background: "#1e1e1e",
+    color: "#fff",
+    border: "1px solid #434343",
+    borderRadius: "8px"
+};
+
+const formatCardNumber = (value) =>
+    value.replace(/\D/g, "").slice(0, 19).match(/.{1,4}/g)?.join(" ") || "";
+
+const formatExpiryDate = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+};
+
+const formatCardHolder = (value) =>
+    value
+        .replace(/\s+/g, " ")
+        .replace(/[^a-zA-Zа-яА-ЯіІїЇєЄґҐ' -]/g, "")
+        .toUpperCase()
+        .trimStart();
+
+const normalizeExpiryForStorage = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+    if (digits.length !== 4) return "";
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+};
+
+const luhnCheck = (number) => {
+    let sum = 0;
+    let shouldDouble = false;
+
+    for (let i = number.length - 1; i >= 0; i -= 1) {
+        let digit = Number(number[i]);
+        if (Number.isNaN(digit)) return false;
+
+        if (shouldDouble) {
+            digit *= 2;
+            if (digit > 9) digit -= 9;
+        }
+
+        sum += digit;
+        shouldDouble = !shouldDouble;
+    }
+
+    return sum % 10 === 0;
+};
+
+const validateExpiryDate = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 4);
+    if (digits.length !== 4) return "Вкажіть строк дії у форматі MM/YY";
+
+    const month = Number(digits.slice(0, 2));
+    const year = Number(`20${digits.slice(2)}`);
+    if (month < 1 || month > 12) return "Місяць має бути від 01 до 12";
+
+    const expiryDate = new Date(year, month, 0, 23, 59, 59, 999);
+    if (expiryDate < new Date()) return "Строк дії картки минув";
+
+    return null;
+};
+
+const validateCardForm = (cardForm, isNewCard) => {
+    const errors = {};
+    const normalizedHolder = cardForm.cardHolder.trim();
+    const cleanNumber = cardForm.cardNumber.replace(/\D/g, "");
+
+    if (!normalizedHolder || normalizedHolder.length < 2) {
+        errors.cardHolder = "Вкажіть ім'я власника картки";
+    } else if (!/^[a-zA-Zа-яА-ЯіІїЇєЄґҐ' -]+$/.test(normalizedHolder)) {
+        errors.cardHolder = "Ім'я може містити лише літери, пробіли, апостроф та дефіс";
+    }
+
+    if (isNewCard) {
+        if (cleanNumber.length < 13 || cleanNumber.length > 19) {
+            errors.cardNumber = "Номер картки має містити від 13 до 19 цифр";
+        } else if (!luhnCheck(cleanNumber)) {
+            errors.cardNumber = "Номер картки не пройшов перевірку";
+        }
+
+        if (!/^\d{3,4}$/.test(cardForm.cvv)) {
+            errors.cvv = "CVV має містити 3 або 4 цифри";
+        }
+    }
+
+    const expiryError = validateExpiryDate(cardForm.expiryDate);
+    if (expiryError) {
+        errors.expiryDate = expiryError;
+    }
+
+    return errors;
+};
 
 const ProfilePage = () => {
     const {
         user,
         accounts,
         currentAccountId,
+        currentSystemRole,
         reloadUser,
         switchAccount,
+        switchSystemRole,
         loading,
     } = useUser();
 
@@ -18,7 +136,8 @@ const ProfilePage = () => {
     const [editingField, setEditingField] = useState(null);
     const [formData, setFormData] = useState({ name: "", phone: "", address: "", avatar: null });
     const [isAvatarHovered, setIsAvatarHovered] = useState(false);
-    const inputRef = useRef(null);
+    const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+    const avatarInputRef = useRef(null);
 
     // Стан для карток (Customer)
     const [paymentCards, setPaymentCards] = useState([]);
@@ -31,13 +150,17 @@ const ProfilePage = () => {
         cardHolder: ""
     });
     const [cardSuccess, setCardSuccess] = useState(null);
+    const [cardErrors, setCardErrors] = useState({});
 
     // Стан для адрес закладів (Business)
     const [businessAddresses, setBusinessAddresses] = useState([]);
     const [editingAddressId, setEditingAddressId] = useState(null);
     const [addressForm, setAddressForm] = useState({ address: "" });
+    const navigate = useNavigate();
 
     const accountTypeMap = { Customer: 0, Business: 1, Courier: 2 };
+    const adminAccount = buildAdminAccount(user);
+    const activeRole = resolveAppRole(user, accounts, currentAccountId, currentSystemRole);
 
     useEffect(() => {
         if (user && accounts && currentAccountId) {
@@ -47,22 +170,13 @@ const ProfilePage = () => {
                     name: currentAccount?.name || user.name || "",
                     phone: currentAccount?.phoneNumber || "",
                     address: currentAccount?.address || "",
-                    avatar: currentAccount?.imageUrl || null,
+                    avatar: resolveAccountImage(currentAccount),
                 });
 
                 // Ініціалізація платіжних карток
-                if (paymentCards.length === 0 && Array.isArray(currentAccount.paymentCards)) {
-                    const cards = currentAccount.paymentCards.map((card, index) => ({
-                        id: card.id || `card-${index}`,
-                        last4: card.last4 || "0000",
-                        expiryDate: card.expiryDate || "MM/YY",
-                        cardHolder: card.cardHolder || "CARD HOLDER",
-                    }));
-                    setPaymentCards(cards);
-                    if (cards.length > 0) {
-                        setActiveCardId(cards[0].id);
-                    }
-                }
+                const cards = resolveAccountPaymentCards(currentAccount);
+                setPaymentCards(cards);
+                setActiveCardId((prev) => (cards.some((card) => card.id === prev) ? prev : (cards[0]?.id || null)));
 
                 // Ініціалізація адрес для бізнес-акаунту
                 if (currentAccount.accountType === "Business" && currentAccount.businessAddresses) {
@@ -76,7 +190,7 @@ const ProfilePage = () => {
                 }
             }
         }
-    }, [user, accounts, currentAccountId, paymentCards.length]);
+    }, [user, accounts, currentAccountId]);
 
     const handleEditToggle = (field) => setEditingField(field);
 
@@ -86,22 +200,38 @@ const ProfilePage = () => {
     };
 
     const handleAvatarChange = async (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files?.[0];
         if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            setError("Оберіть файл зображення");
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            setError("Зображення має бути меншим за 2 MB");
+            return;
+        }
 
-        const avatarUrl = URL.createObjectURL(file);
-        setFormData(prev => ({ ...prev, avatar: avatarUrl }));
-        setIsAvatarHovered(false);
+        setError(null);
+        setIsAvatarUploading(true);
+
+        const currentAccount = accounts.find(a => a.id === currentAccountId);
+        if (!currentAccount) {
+            setIsAvatarUploading(false);
+            setError("No active account found");
+            return;
+        }
 
         try {
+            const avatarUrl = await fileToDataUrl(file);
+            saveStoredAccountImage(currentAccount.id, avatarUrl);
+            setFormData(prev => ({ ...prev, avatar: avatarUrl }));
+            setIsAvatarHovered(false);
+
             let token = localStorage.getItem("accessToken");
             if (!token) {
                 const tokens = await refresh();
                 token = tokens.accessToken;
             }
-
-            const currentAccount = accounts.find(a => a.id === currentAccountId);
-            if (!currentAccount) throw new Error("No active account found");
 
             const body = {
                 Id: currentAccount.id,
@@ -119,6 +249,11 @@ const ProfilePage = () => {
             await reloadUser();
         } catch (err) {
             setError(err.response?.data || err.message || "Failed to update avatar");
+        } finally {
+            setIsAvatarUploading(false);
+            if (avatarInputRef.current) {
+                avatarInputRef.current.value = "";
+            }
         }
     };
 
@@ -144,10 +279,6 @@ const ProfilePage = () => {
                 Description: currentAccount.description || "",
             };
 
-            if (inputRef.current?.files?.[0]) {
-                body.ImageFile = inputRef.current.files[0];
-            }
-
             await updateProfile(currentAccount.accountType.toLowerCase(), body, token);
             setEditingField(null);
             await reloadUser();
@@ -157,44 +288,63 @@ const ProfilePage = () => {
     };
 
     const handleAccountSwitch = async (account) => {
+        if (account.id === ADMIN_ACCOUNT_ID) {
+            switchSystemRole("Admin");
+            await reloadUser();
+            navigate(homePathForRole("Admin"));
+            return;
+        }
+
+        if (account.id === currentAccountId && currentSystemRole === "Admin") {
+            switchSystemRole("Account");
+            await reloadUser();
+            navigate(homePathForRole(account.accountType));
+            return;
+        }
+
         await switchAccount(account.id);
         await reloadUser();
+        navigate(homePathForRole(account.accountType));
     };
 
     // === Функції для карток ===
-    const formatCardNumber = (value) =>
-        value.replace(/\D/g, "").match(/.{1,4}/g)?.join(" ") || "";
-
     const handleCardInputChange = (e) => {
         const { name, value } = e.target;
         let formatted = value;
         if (name === "cardNumber") formatted = formatCardNumber(value);
-        if (name === "expiryDate") formatted = value.replace(/\D/g, "").slice(0, 4);
+        if (name === "expiryDate") formatted = formatExpiryDate(value);
         if (name === "cvv") formatted = value.replace(/\D/g, "").slice(0, 4);
-        if (name === "cardHolder") formatted = value.toUpperCase();
+        if (name === "cardHolder") formatted = formatCardHolder(value);
         setCardForm(prev => ({ ...prev, [name]: formatted }));
+        setCardErrors(prev => ({ ...prev, [name]: null }));
     };
 
     const startAddingCard = () => {
         setEditingCardId("new");
-        setCardForm({ cardNumber: "", expiryDate: "", cvv: "", cardHolder: "" });
+        const defaultHolder = formatCardHolder(
+            [user?.name, user?.surname].filter(Boolean).join(" ") || formData.name || ""
+        );
+        setCardForm({ ...EMPTY_CARD_FORM, cardHolder: defaultHolder });
+        setCardErrors({});
     };
 
     const startEditingCard = (card) => {
         setEditingCardId(card.id);
         setCardForm({
             cardNumber: "",
-            expiryDate: card.expiryDate.replace("/", ""),
+            expiryDate: formatExpiryDate(card.expiryDate),
             cvv: "",
             cardHolder: card.cardHolder
         });
+        setCardErrors({});
     };
 
     const deleteCard = (id) => {
-        setPaymentCards(prev => prev.filter(c => c.id !== id));
+        const updatedCards = paymentCards.filter(c => c.id !== id);
+        setPaymentCards(updatedCards);
+        saveStoredPaymentCards(currentAccountId, updatedCards);
         if (activeCardId === id) {
-            const remaining = paymentCards.filter(c => c.id !== id);
-            setActiveCardId(remaining[0]?.id || null);
+            setActiveCardId(updatedCards[0]?.id || null);
         }
         setCardSuccess("Картку видалено");
         setTimeout(() => setCardSuccess(null), 3000);
@@ -202,12 +352,16 @@ const ProfilePage = () => {
 
     const handleCardSubmit = (e) => {
         e.preventDefault();
-        const cleanNumber = cardForm.cardNumber.replace(/\s/g, "");
-        if (editingCardId === "new" && cleanNumber.length !== 16) return;
+        const isNewCard = editingCardId === "new";
+        const validationErrors = validateCardForm(cardForm, isNewCard);
+        if (Object.keys(validationErrors).length > 0) {
+            setCardErrors(validationErrors);
+            return;
+        }
 
-        const formattedExpiry = cardForm.expiryDate.length === 4
-            ? `${cardForm.expiryDate.slice(0, 2)}/${cardForm.expiryDate.slice(2)}`
-            : "MM/YY";
+        const cleanNumber = cardForm.cardNumber.replace(/\D/g, "");
+
+        const formattedExpiry = normalizeExpiryForStorage(cardForm.expiryDate) || "MM/YY";
 
         const cardData = {
             last4: cleanNumber.slice(-4) || paymentCards.find(c => c.id === editingCardId)?.last4 || "0000",
@@ -215,27 +369,39 @@ const ProfilePage = () => {
             cardHolder: cardForm.cardHolder.trim() || "CARD HOLDER",
         };
 
+        let nextCards = [];
         if (editingCardId === "new") {
             const newCard = { id: Date.now().toString(), ...cardData };
-            setPaymentCards(prev => [...prev, newCard]);
+            nextCards = [...paymentCards, newCard];
+            setPaymentCards(nextCards);
             setActiveCardId(newCard.id);
             setCardSuccess("Картку додано!");
         } else {
-            setPaymentCards(prev => prev.map(c => c.id === editingCardId ? { ...c, ...cardData } : c));
+            nextCards = paymentCards.map(c => c.id === editingCardId ? { ...c, ...cardData } : c);
+            setPaymentCards(nextCards);
             setCardSuccess("Картку оновлено!");
         }
+        saveStoredPaymentCards(currentAccountId, nextCards);
 
         setEditingCardId(null);
-        setCardForm({ cardNumber: "", expiryDate: "", cvv: "", cardHolder: "" });
+        setCardForm(EMPTY_CARD_FORM);
+        setCardErrors({});
         setTimeout(() => setCardSuccess(null), 3000);
     };
 
     const cancelCardEdit = () => {
         setEditingCardId(null);
-        setCardForm({ cardNumber: "", expiryDate: "", cvv: "", cardHolder: "" });
+        setCardForm(EMPTY_CARD_FORM);
+        setCardErrors({});
     };
 
     const selectCard = (id) => setActiveCardId(id);
+    const getCardInputStyle = (fieldName, widthOverride = null) => ({
+        ...CARD_INPUT_BASE_STYLE,
+        ...(widthOverride ? { width: widthOverride } : {}),
+        border: cardErrors[fieldName] ? "1px solid #ff7875" : CARD_INPUT_BASE_STYLE.border,
+        boxShadow: cardErrors[fieldName] ? "0 0 0 1px rgba(255, 120, 117, 0.25)" : "none",
+    });
 
     // === Функції для адрес бізнесу ===
     const startAddingAddress = () => {
@@ -281,6 +447,7 @@ const ProfilePage = () => {
     if (error) return <>❌ {error}</>;
 
     const currentAccount = accounts.find(a => a.id === currentAccountId);
+    const displayedAccounts = adminAccount ? [adminAccount, ...accounts] : accounts;
     const isCustomer = currentAccount?.accountType === "Customer";
     const isBusiness = currentAccount?.accountType === "Business";
 
@@ -300,18 +467,28 @@ const ProfilePage = () => {
                         ) : (
                             <div className="avatar-initial">{currentAccount?.name?.[0] ?? "U"}</div>
                         )}
+                        <input
+                            type="file"
+                            accept="image/*"
+                            className="avatar-input"
+                            ref={avatarInputRef}
+                            onChange={handleAvatarChange}
+                            disabled={isAvatarUploading}
+                        />
                         {isAvatarHovered && (
-                            <>
-                                <div className="avatar-tooltip">Edit</div>
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="avatar-input"
-                                    onChange={handleAvatarChange}
-                                />
-                            </>
+                            <div className="avatar-tooltip">
+                                {isAvatarUploading ? "Uploading..." : "Edit"}
+                            </div>
                         )}
                     </div>
+                    <button
+                        type="button"
+                        className="avatar-upload-btn"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={isAvatarUploading}
+                    >
+                        {isAvatarUploading ? "Uploading..." : "Завантажити фото"}
+                    </button>
 
                     <div className="meta">
                         {editingField === "name" ? (
@@ -323,7 +500,6 @@ const ProfilePage = () => {
                                     onChange={handleInputChange}
                                     onBlur={() => handleSave("name")}
                                     className="edit-input"
-                                    ref={inputRef}
                                     autoFocus
                                 />
                             </div>
@@ -344,7 +520,6 @@ const ProfilePage = () => {
                                     onChange={handleInputChange}
                                     onBlur={() => handleSave("phone")}
                                     className="edit-input"
-                                    ref={inputRef}
                                     autoFocus
                                 />
                             </div>
@@ -364,7 +539,6 @@ const ProfilePage = () => {
                                     onChange={handleInputChange}
                                     onBlur={() => handleSave("address")}
                                     className="edit-input"
-                                    ref={inputRef}
                                     autoFocus
                                 />
                             </div>
@@ -381,15 +555,20 @@ const ProfilePage = () => {
                     <div className="active-accounts">
                         <h3>Accounts</h3>
                         <ul>
-                            {accounts.map((account) => (
+                            {displayedAccounts.map((account) => (
                                 <li
                                     key={account.id}
-                                    className={account.id === currentAccountId ? "active-account" : ""}
+                                    className={
+                                        (account.id === ADMIN_ACCOUNT_ID && activeRole === "Admin") ||
+                                        (account.id === currentAccountId && activeRole !== "Admin")
+                                            ? "active-account"
+                                            : ""
+                                    }
                                     onClick={() => handleAccountSwitch(account)}
                                 >
                                     <div className="account-avatar">
-                                        {account.imageUrl ? (
-                                            <img src={account.imageUrl} alt={account.name} className="account-avatar-image" />
+                                        {resolveAccountImage(account) ? (
+                                            <img src={resolveAccountImage(account)} alt={account.name} className="account-avatar-image" />
                                         ) : (
                                             <div className="avatar-initial">{account.name?.[0] ?? "U"}</div>
                                         )}
@@ -470,16 +649,14 @@ const ProfilePage = () => {
                                                 value={cardForm.cardHolder}
                                                 onChange={handleCardInputChange}
                                                 required
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "12px",
-                                                    fontSize: "15px",
-                                                    background: "#1e1e1e",
-                                                    color: "#fff",
-                                                    border: "1px solid #434343",
-                                                    borderRadius: "8px"
-                                                }}
+                                                autoComplete="cc-name"
+                                                style={getCardInputStyle("cardHolder")}
                                             />
+                                            {cardErrors.cardHolder && (
+                                                <div style={{ marginTop: "8px", color: "#ff7875", fontSize: "13px" }}>
+                                                    {cardErrors.cardHolder}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {editingCardId === "new" && (
@@ -491,58 +668,58 @@ const ProfilePage = () => {
                                                     value={cardForm.cardNumber}
                                                     onChange={handleCardInputChange}
                                                     required
-                                                    maxLength="19"
-                                                    style={{
-                                                        width: "100%",
-                                                        padding: "12px",
-                                                        fontSize: "15px",
-                                                        background: "#1e1e1e",
-                                                        color: "#fff",
-                                                        border: "1px solid #434343",
-                                                        borderRadius: "8px"
-                                                    }}
+                                                    autoComplete="cc-number"
+                                                    inputMode="numeric"
+                                                    maxLength="23"
+                                                    style={getCardInputStyle("cardNumber")}
                                                 />
+                                                {cardErrors.cardNumber && (
+                                                    <div style={{ marginTop: "8px", color: "#ff7875", fontSize: "13px" }}>
+                                                        {cardErrors.cardNumber}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
 
                                         <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
-                                            <input
-                                                type="text"
-                                                name="expiryDate"
-                                                placeholder="MMYY"
-                                                value={cardForm.expiryDate}
-                                                onChange={handleCardInputChange}
-                                                required
-                                                maxLength="4"
-                                                style={{
-                                                    flex: 1,
-                                                    padding: "12px",
-                                                    fontSize: "15px",
-                                                    background: "#1e1e1e",
-                                                    color: "#fff",
-                                                    border: "1px solid #434343",
-                                                    borderRadius: "8px"
-                                                }}
-                                            />
-                                            <input
-                                                type="password"
-                                                name="cvv"
-                                                placeholder="CVV"
-                                                value={cardForm.cvv}
-                                                onChange={handleCardInputChange}
-                                                required={editingCardId === "new"}
-                                                maxLength="4"
-                                                style={{
-                                                    width: "100px",
-                                                    padding: "12px",
-                                                    fontSize: "15px",
-                                                    background: "#1e1e1e",
-                                                    color: "#fff",
-                                                    border: "1px solid #434343",
-                                                    borderRadius: "8px"
-                                                }}
-                                                autoComplete="off"
-                                            />
+                                            <div style={{ flex: 1 }}>
+                                                <input
+                                                    type="text"
+                                                    name="expiryDate"
+                                                    placeholder="MM/YY"
+                                                    value={cardForm.expiryDate}
+                                                    onChange={handleCardInputChange}
+                                                    required
+                                                    autoComplete="cc-exp"
+                                                    inputMode="numeric"
+                                                    maxLength="5"
+                                                    style={getCardInputStyle("expiryDate")}
+                                                />
+                                                {cardErrors.expiryDate && (
+                                                    <div style={{ marginTop: "8px", color: "#ff7875", fontSize: "13px" }}>
+                                                        {cardErrors.expiryDate}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ width: "100px" }}>
+                                                <input
+                                                    type="password"
+                                                    name="cvv"
+                                                    placeholder="CVV"
+                                                    value={cardForm.cvv}
+                                                    onChange={handleCardInputChange}
+                                                    required={editingCardId === "new"}
+                                                    autoComplete="cc-csc"
+                                                    inputMode="numeric"
+                                                    maxLength="4"
+                                                    style={getCardInputStyle("cvv", "100px")}
+                                                />
+                                                {cardErrors.cvv && (
+                                                    <div style={{ marginTop: "8px", color: "#ff7875", fontSize: "13px" }}>
+                                                        {cardErrors.cvv}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <button

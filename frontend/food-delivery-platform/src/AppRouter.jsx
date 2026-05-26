@@ -3,11 +3,17 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from "rea
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import CustomerLayout from "./layouts/CustomerLayout.jsx";
 import BusinessLayout from "./layouts/BusinessLayout.jsx";
+import AdminLayout from "./layouts/AdminLayout.jsx";
 import RoleHomeRedirect from "./pages/RoleHomeRedirect.jsx";
 import LoginForm from "./pages/LoginForm.jsx";
 import RegisterForm from "./pages/RegisterForm.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import CreateAccountPage from "./pages/CreateAccountPage.jsx";
+import AdminHomePage from "./pages/AdminHomePage.jsx";
+import AdminUsersPage from "./pages/AdminUsersPage.jsx";
+import AdminOrdersPage from "./pages/AdminOrdersPage.jsx";
+import AdminMenuPage from "./pages/AdminMenuPage.jsx";
+import AdminPromosPage from "./pages/AdminPromosPage.jsx";
 import CustomerHomePage from "./components/CustomerHomePage.jsx";
 import RestaurantsPage from "./pages/RestaurantsPage.jsx";
 import RestaurantDetailsPage from "./pages/RestaurantDetailsPage.jsx";
@@ -75,6 +81,21 @@ const AppRouter = () => {
                             </ProtectedRoute>
                         }
                     />
+                </Route>
+
+                <Route
+                    path="/admin"
+                    element={
+                        <ProtectedRoute roles={["Admin"]}>
+                            <AdminLayout />
+                        </ProtectedRoute>
+                    }
+                >
+                    <Route index element={<AdminHomePage />} />
+                    <Route path="users" element={<AdminUsersPage />} />
+                    <Route path="orders" element={<AdminOrdersPage />} />
+                    <Route path="menu" element={<AdminMenuPage />} />
+                    <Route path="promos" element={<AdminPromosPage />} />
                 </Route>
 
                 {/* ——— Клієнтська зона ——— */}

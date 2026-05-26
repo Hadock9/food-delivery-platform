@@ -3,6 +3,7 @@ import { createAccount } from "../../api/Account.jsx";
 import "../styles/FormBase.css";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../../context/UserContext";
+import { fileToDataUrl, saveStoredAccountImage } from "../../utils/accountImages.js";
 
 export default function CustomerForm() {
     const navigate = useNavigate();
@@ -81,7 +82,11 @@ export default function CustomerForm() {
         };
 
         try {
-            await createAccount("customer", account);
+            const created = await createAccount("customer", account);
+            if (formData.photoFile && created?.id) {
+                const imageDataUrl = await fileToDataUrl(formData.photoFile);
+                saveStoredAccountImage(created.id, imageDataUrl);
+            }
             await reloadUser();
             navigate("/profile");
         } catch (err) {

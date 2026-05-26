@@ -1,6 +1,11 @@
 /** Централізовані шляхи за ролями */
 export const ROUTES = {
     home: "/",
+    admin: "/admin",
+    adminUsers: "/admin/users",
+    adminOrders: "/admin/orders",
+    adminMenu: "/admin/menu",
+    adminPromos: "/admin/promos",
     login: "/login",
     register: "/register",
     profile: "/profile",
@@ -31,6 +36,8 @@ export const ROUTES = {
 
 export function homePathForRole(role) {
     switch (role) {
+        case "Admin":
+            return ROUTES.admin;
         case "Customer":
             return ROUTES.customer.root;
         case "Business":

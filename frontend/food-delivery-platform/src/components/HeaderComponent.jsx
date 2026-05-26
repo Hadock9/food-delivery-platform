@@ -6,19 +6,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import "./styles/HeaderComponent.css";
 import { resolveRestaurantImage, handleImageError } from "../utils/images.js";
 import { resolveAccountRole } from "../utils/accountRole.js";
+import { ADMIN_ACCOUNT_ID, buildAdminAccount, resolveAppRole } from "../utils/appRole.js";
 import { ROUTES, homePathForRole } from "../utils/roleRoutes.js";
+import { resolveAccountImage } from "../utils/accountImages.js";
 
 const Header = () => {
-    const { user, accounts, currentAccountId, loading, logout, switchAccount } = useUser();
+    const {
+        user,
+        accounts,
+        currentAccountId,
+        currentSystemRole,
+        loading,
+        logout,
+        switchAccount,
+        switchSystemRole,
+    } = useUser();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isAccountsOpen, setIsAccountsOpen] = useState(true);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const adminAccount = useMemo(() => buildAdminAccount(user), [user]);
 
     const activeRole = useMemo(() => {
-        const acc = accounts.find((a) => a.id === currentAccountId) ?? accounts[0];
-        return resolveAccountRole(acc?.accountType);
-    }, [accounts, currentAccountId]);
+        return resolveAppRole(user, accounts, currentAccountId, currentSystemRole);
+    }, [user, accounts, currentAccountId, currentSystemRole]);
 
     useEffect(() => {
         const handleOutsideClick = (event) => {
@@ -36,10 +47,25 @@ const Header = () => {
     }, [isDropdownOpen]);
 
     const handleSelectAccount = async (account) => {
-        if (account.id === currentAccountId) {
+        if (account.id === ADMIN_ACCOUNT_ID) {
+            switchSystemRole("Admin");
+            setIsDropdownOpen(false);
+            navigate(ROUTES.admin);
+            return;
+        }
+
+        if (account.id === currentAccountId && currentSystemRole !== "Admin") {
             setIsDropdownOpen(false);
             return;
         }
+
+        if (account.id === currentAccountId && currentSystemRole === "Admin") {
+            switchSystemRole("Account");
+            setIsDropdownOpen(false);
+            navigate(homePathForRole(resolveAccountRole(account.accountType)));
+            return;
+        }
+
         await switchAccount(account.id);
         setIsDropdownOpen(false);
         const role = resolveAccountRole(account.accountType);
@@ -57,10 +83,16 @@ const Header = () => {
         );
     }
 
-    const activeAccount = accounts.find((acc) => acc.id === currentAccountId) || {};
-    const otherAccounts = accounts.filter((acc) => acc.id !== currentAccountId);
-    const activeAvatar = resolveRestaurantImage(activeAccount, activeAccount.id, activeAccount.name);
-    const totalAccounts = accounts.length;
+    const actualActiveAccount = accounts.find((acc) => acc.id === currentAccountId) || {};
+    const selectableAccounts = adminAccount ? [adminAccount, ...accounts] : accounts;
+    const activeAccount = activeRole === "Admin" && adminAccount ? adminAccount : actualActiveAccount;
+    const otherAccounts = selectableAccounts.filter((acc) => acc.id !== activeAccount.id);
+    const activeAvatar =
+        resolveAccountImage(activeAccount) ||
+        (activeAccount?.isSystemRole
+            ? activeAccount.imageUrl
+            : resolveRestaurantImage(activeAccount, activeAccount.id, activeAccount.name));
+    const totalAccounts = selectableAccounts.length;
     const navLinkClass = ({ isActive }) => (isActive ? "nav-link active" : "nav-link");
 
     const getPosition = (index) => {
@@ -131,6 +163,12 @@ const Header = () => {
                     </NavLink>
                 )}
 
+                {user && activeRole === "Admin" && (
+                    <NavLink className={navLinkClass} to={ROUTES.admin}>
+                        Адмін
+                    </NavLink>
+                )}
+
                 {user && (
                     <div className="account-bubbles-container" ref={dropdownRef}>
                         <div className="account-bubbles">
@@ -157,6 +195,11 @@ const Header = () => {
 
                             {otherAccounts.map((acc, index) => {
                                 const position = getPosition(index);
+                                    const avatarSrc =
+                                        resolveAccountImage(acc) ||
+                                        (acc?.isSystemRole
+                                            ? acc.imageUrl
+                                            : resolveRestaurantImage(acc, acc.id, acc.name));
                                 return (
                                     <motion.div
                                         key={acc.id}
@@ -173,15 +216,17 @@ const Header = () => {
                                         transition={{ type: "spring", stiffness: 200, damping: 20 }}
                                     >
                                         <motion.img
-                                            src={resolveRestaurantImage(acc, acc.id, acc.name)}
+                                            src={avatarSrc}
                                             alt={acc.accountType}
                                             whileHover={{ scale: 1.1, opacity: 1 }}
                                             transition={{ duration: 0.2 }}
                                             onError={(e) =>
-                                                handleImageError(
-                                                    e,
-                                                    resolveRestaurantImage(null, acc.id, acc.name)
-                                                )
+                                                acc?.isSystemRole
+                                                    ? undefined
+                                                    : handleImageError(
+                                                        e,
+                                                        resolveRestaurantImage(null, acc.id, acc.name)
+                                                    )
                                             }
                                         />
                                     </motion.div>
@@ -217,13 +262,13 @@ const Header = () => {
 
                                     {isAccountsOpen && (
                                         <ul>
-                                            {accounts.map((acc) => (
+                                            {selectableAccounts.map((acc) => (
                                                 <li
                                                     key={acc.id}
-                                                    className={acc.id === currentAccountId ? "selected-account" : ""}
+                                                    className={acc.id === activeAccount.id ? "selected-account" : ""}
                                                     onClick={() => handleSelectAccount(acc)}
                                                 >
-                                                    {acc.accountType}
+                                                    {acc.name ?? acc.accountType} ({acc.accountType})
                                                 </li>
                                             ))}
                                         </ul>

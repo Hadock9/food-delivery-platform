@@ -6,6 +6,7 @@ const menuApiTarget = process.env.VITE_PROXY_MENU_API_TARGET || "http://localhos
 const orderApiTarget = process.env.VITE_PROXY_ORDER_API_TARGET || "http://localhost:5005"
 const trackingApiTarget = process.env.VITE_PROXY_TRACKING_API_TARGET || "http://localhost:5006"
 const promoApiTarget = process.env.VITE_PROXY_PROMO_API_TARGET || "http://localhost:5007"
+const adminApiTarget = process.env.VITE_PROXY_ADMIN_API_TARGET || "http://localhost:5011"
 const foodSplitApiTarget = process.env.VITE_PROXY_FOOD_SPLIT_API_TARGET || "http://localhost:5010"
 const osrmApiTarget = process.env.VITE_PROXY_OSRM_TARGET || "https://router.project-osrm.org"
 const nominatimApiTarget = process.env.VITE_PROXY_NOMINATIM_TARGET || "https://nominatim.openstreetmap.org"
@@ -55,6 +56,10 @@ export default defineConfig({
             },
             "/api/promos": {
                 target: promoApiTarget,
+                changeOrigin: true,
+            },
+            "/api/admin": {
+                target: adminApiTarget,
                 changeOrigin: true,
             },
             "/api/food-split": {

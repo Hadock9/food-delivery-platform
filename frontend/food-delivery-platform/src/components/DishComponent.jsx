@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
 import { CategoryListUa } from "../constants/category.jsx";
 
-export default function DishComponent({ open, onClose, onCreate, onUpdate, editing, userData }) {
+export default function DishComponent({ open, onClose, onCreate, onUpdate, editing, userData, categories = null }) {
     const [page, setPage] = useState(1); // 🔥 СТОРІНКА 1/2
 
     const [form, setForm] = useState({
@@ -54,6 +54,7 @@ export default function DishComponent({ open, onClose, onCreate, onUpdate, editi
     }, [editing, open]);
 
     const change = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+    const categoryOptions = Array.isArray(categories) && categories.length > 0 ? categories : CategoryListUa;
 
     const updateIngredient = (index, key, value) => {
         const updated = [...form.ingredients];
@@ -113,6 +114,15 @@ export default function DishComponent({ open, onClose, onCreate, onUpdate, editi
             return;
         }
 
+        const validIngredients = form.ingredients.filter(
+            (ingredient) => ingredient.name?.trim() && Number(ingredient.weight) > 0
+        );
+        if (validIngredients.length === 0) {
+            alert("Додайте хоча б один інгредієнт з назвою та вагою.");
+            setPage(2);
+            return;
+        }
+
         const payload = {
             userId,
             menuId: null,
@@ -121,7 +131,7 @@ export default function DishComponent({ open, onClose, onCreate, onUpdate, editi
             price: Number(form.price) || 0,
             category: form.category,
             cookingTime: Number(form.cookingTime),
-            ingredients: form.ingredients,
+            ingredients: validIngredients,
         };
 
         if (form.imageFile) payload.image = form.imageFile;
@@ -158,7 +168,7 @@ export default function DishComponent({ open, onClose, onCreate, onUpdate, editi
                             value={form.category}
                             onChange={(e) => setForm({ ...form, category: Number(e.target.value) })}
                         >
-                            {CategoryListUa.map(cat => (
+                            {categoryOptions.map(cat => (
                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
                         </select>

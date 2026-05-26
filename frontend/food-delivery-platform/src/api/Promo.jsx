@@ -24,3 +24,28 @@ export const applyPromo = async (code, userId, orderTotal) => {
     const res = await promoApi.post("/apply", { code, userId, orderTotal });
     return res.data;
 };
+
+export const getPromos = async () => {
+    const res = await promoApi.get("");
+    return res.data;
+};
+
+export const createPromo = async (payload) => {
+    const res = await promoApi.post("", payload);
+    return res.data;
+};
+
+export const updatePromo = async (promoId, payload) => {
+    const res = await promoApi.put(`/${promoId}`, payload);
+    return res.data;
+};
+
+export const deletePromo = async (promoId) => {
+    const res = await promoApi.delete(`/${promoId}`);
+    return res.data;
+};
+
+export const getPromoAnalytics = async () => {
+    const res = await promoApi.get("/analytics");
+    return res.data;
+};

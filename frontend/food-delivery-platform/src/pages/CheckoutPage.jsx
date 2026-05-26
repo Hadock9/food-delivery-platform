@@ -14,6 +14,11 @@ import { checkPromo } from "../api/Promo.jsx";
 import { resolveDishImage, handleImageError, dishImgProps } from "../utils/images.js";
 import { useUser } from "../context/UserContext.jsx";
 import { resolveAccountRole } from "../utils/accountRole.js";
+import {
+    buildSavedCardFormData,
+    formatSavedCardLabel,
+    resolveAccountPaymentCards,
+} from "../utils/paymentCards.js";
 
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -25,6 +30,8 @@ const getCart = () => JSON.parse(localStorage.getItem("cart")) || [];
 const clearCart = () => localStorage.removeItem("cart");
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMPTY_CARD_DATA = { cardNumber: '', cardExpiry: '', cardCVV: '', cardName: '' };
+const MANUAL_CARD_OPTION = "__manual__";
 
 const CheckoutPage = () => {
     const navigate = useNavigate();
@@ -51,7 +58,8 @@ const CheckoutPage = () => {
                 deliveryType: 'delivery',
                 paymentType: 'cash',
                 address: '',
-                cardData: { cardNumber: '', cardExpiry: '', cardCVV: '', cardName: '' }
+                selectedSavedCardId: '',
+                cardData: { ...EMPTY_CARD_DATA }
             };
         }
         console.log(restaurantSettings[restaurant]);
@@ -72,7 +80,39 @@ const CheckoutPage = () => {
     const handleCardChange = (restaurant, e) => {
         const settings = getSettingsFor(restaurant);
         updateSettingsFor(restaurant, {
+            selectedSavedCardId: MANUAL_CARD_OPTION,
             cardData: { ...settings.cardData, [e.target.name]: e.target.value }
+        });
+    };
+
+    const currentAcc = accounts.find((a) => a.id === currentAccountId);
+    const customerAccount =
+        (resolveAccountRole(currentAcc?.accountType) === "Customer" && currentAcc) ||
+        accounts.find((a) => resolveAccountRole(a.accountType) === "Customer") ||
+        null;
+    const savedPaymentCards = resolveAccountPaymentCards(customerAccount);
+
+    const handleSavedCardSelect = (restaurant, cardId) => {
+        if (!cardId) {
+            updateSettingsFor(restaurant, {
+                selectedSavedCardId: '',
+                cardData: { ...EMPTY_CARD_DATA }
+            });
+            return;
+        }
+
+        if (cardId === MANUAL_CARD_OPTION) {
+            updateSettingsFor(restaurant, {
+                selectedSavedCardId: MANUAL_CARD_OPTION,
+                cardData: { ...EMPTY_CARD_DATA }
+            });
+            return;
+        }
+
+        const selectedCard = savedPaymentCards.find((card) => card.id === cardId);
+        updateSettingsFor(restaurant, {
+            selectedSavedCardId: cardId,
+            cardData: buildSavedCardFormData(selectedCard)
         });
     };
 
@@ -160,7 +200,6 @@ const CheckoutPage = () => {
             alert('Будь ласка, заповніть імʼя та телефон');
             return;
         }
-        const currentAcc = accounts.find((a) => a.id === currentAccountId);
         const customerAccountId =
             (resolveAccountRole(currentAcc?.accountType) === "Customer" && currentAccountId) ||
             accounts.find((a) => resolveAccountRole(a.accountType) === "Customer")?.id ||
@@ -275,6 +314,10 @@ const CheckoutPage = () => {
                         {/* Блоки по ресторанах */}
                         {Object.entries(groupedItems).map(([restaurant, items], index) => {
                             const settings = getSettingsFor(restaurant);
+                            const selectedSavedCard = savedPaymentCards.find(
+                                (card) => card.id === settings.selectedSavedCardId
+                            );
+                            const usesSavedCard = Boolean(selectedSavedCard);
                             return (
                                 <motion.section key={restaurant} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1 }} className="checkout-section">
                                     <h2><ShoppingCart size={28} /> {restaurant}</h2>
@@ -365,12 +408,71 @@ const CheckoutPage = () => {
 
                                     {settings.paymentType === 'card' && (
                                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-form">
-                                            <input type="text" name="cardNumber" placeholder="Номер карти" value={settings.cardData.cardNumber} onChange={(e) => handleCardChange(restaurant, e)} required />
+                                            {savedPaymentCards.length > 0 && (
+                                                <div className="saved-card-picker">
+                                                    <label htmlFor={`saved-card-${index}`}>Оберіть збережену картку</label>
+                                                    <select
+                                                        id={`saved-card-${index}`}
+                                                        value={settings.selectedSavedCardId || ''}
+                                                        onChange={(e) => handleSavedCardSelect(restaurant, e.target.value)}
+                                                    >
+                                                        <option value="">Вибрати картку</option>
+                                                        {savedPaymentCards.map((card) => (
+                                                            <option key={card.id} value={card.id}>
+                                                                {formatSavedCardLabel(card)}
+                                                            </option>
+                                                        ))}
+                                                        <option value={MANUAL_CARD_OPTION}>Ввести іншу картку вручну</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {usesSavedCard && (
+                                                <div className="selected-card-preview">
+                                                    Буде використано картку: <strong>{formatSavedCardLabel(selectedSavedCard)}</strong>
+                                                </div>
+                                            )}
+                                            <input
+                                                type="text"
+                                                name="cardNumber"
+                                                placeholder="Номер карти"
+                                                value={settings.cardData.cardNumber}
+                                                onChange={(e) => handleCardChange(restaurant, e)}
+                                                required={!usesSavedCard}
+                                                disabled={usesSavedCard}
+                                                autoComplete="cc-number"
+                                            />
                                             <div className="card-row">
-                                                <input type="text" name="cardExpiry" placeholder="MM/РР" value={settings.cardData.cardExpiry} onChange={(e) => handleCardChange(restaurant, e)} required />
-                                                <input type="text" name="cardCVV" placeholder="CVV" value={settings.cardData.cardCVV} onChange={(e) => handleCardChange(restaurant, e)} required />
+                                                <input
+                                                    type="text"
+                                                    name="cardExpiry"
+                                                    placeholder="MM/РР"
+                                                    value={settings.cardData.cardExpiry}
+                                                    onChange={(e) => handleCardChange(restaurant, e)}
+                                                    required={!usesSavedCard}
+                                                    disabled={usesSavedCard}
+                                                    autoComplete="cc-exp"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    name="cardCVV"
+                                                    placeholder="CVV"
+                                                    value={settings.cardData.cardCVV}
+                                                    onChange={(e) => handleCardChange(restaurant, e)}
+                                                    required={!usesSavedCard}
+                                                    disabled={usesSavedCard}
+                                                    autoComplete="cc-csc"
+                                                />
                                             </div>
-                                            <input type="text" name="cardName" placeholder="Ім'я на карті" value={settings.cardData.cardName} onChange={(e) => handleCardChange(restaurant, e)} required />
+                                            <input
+                                                type="text"
+                                                name="cardName"
+                                                placeholder="Ім'я на карті"
+                                                value={settings.cardData.cardName}
+                                                onChange={(e) => handleCardChange(restaurant, e)}
+                                                required={!usesSavedCard}
+                                                disabled={usesSavedCard}
+                                                autoComplete="cc-name"
+                                            />
                                         </motion.div>
                                     )}
 

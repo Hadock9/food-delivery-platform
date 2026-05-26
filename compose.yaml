@@ -7,12 +7,13 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_PROXY_USER_API_TARGET: http://df.userservice.api:5000
-      VITE_PROXY_ORDER_API_TARGET: http://df.orderservice.api:8080
+      VITE_PROXY_USER_API_TARGET: http://user-api:5000
+      VITE_PROXY_ORDER_API_TARGET: http://order-api:8080
       VITE_PROXY_FOOD_SPLIT_API_TARGET: http://food-split-service:5010
-      VITE_PROXY_MENU_API_TARGET: http://df.menuservice.api:8080
-      VITE_PROXY_TRACKING_API_TARGET: http://df.trackingservice.api:8080
-      VITE_PROXY_PROMO_API_TARGET: http://df.promoservice.api:8080
+      VITE_PROXY_MENU_API_TARGET: http://menu-api:8080
+      VITE_PROXY_TRACKING_API_TARGET: http://tracking-api:8080
+      VITE_PROXY_PROMO_API_TARGET: http://promo-api:8080
+      VITE_PROXY_ADMIN_API_TARGET: http://admin-api:5011
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -21,14 +22,46 @@ services:
       - df.menuservice.api
       - df.trackingservice.api
       - df.promoservice.api
+      - df.adminservice.api
       - food-split-service
+    networks:
+      default:
+        aliases:
+          - frontend-app
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
+    user: "0:0"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: PolyflowRabbitMqCookie2026
     ports:
       - "5672:5672"
       - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /var/lib/rabbitmq
+        chmod 700 /var/lib/rabbitmq
+        if [ ! -s /var/lib/rabbitmq/.erlang.cookie ]; then
+          printf '%s' "$${RABBITMQ_ERLANG_COOKIE}" > /var/lib/rabbitmq/.erlang.cookie
+        fi
+        chown -R 999:999 /var/lib/rabbitmq
+        chmod 600 /var/lib/rabbitmq/.erlang.cookie
+        exec docker-entrypoint.sh rabbitmq-server
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_listener 5672"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   df.orderservice.db:
     image: postgres:16
@@ -47,6 +80,10 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      default:
+        aliases:
+          - order-db
 
   df.orderservice.api:
     build:
@@ -58,7 +95,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=df.orderservice.db;Port=5432;Database=OrderServiceDb;Username=OrderService;Password=OrderService2025!
+      ConnectionStrings__DefaultConnection: Host=order-db;Port=5432;Database=OrderServiceDb;Username=OrderService;Password=OrderService2025!
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__UserName: guest
       RabbitMQ__Password: guest
@@ -70,8 +107,12 @@ services:
       df.orderservice.db:
         condition: service_healthy
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - order-api
 
   mssql:
     platform: linux/amd64
@@ -84,6 +125,12 @@ services:
       - "11433:1433"
     volumes:
       - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
 
   mssql-init:
     platform: linux/amd64
@@ -91,7 +138,7 @@ services:
     container_name: mssql-init
     depends_on:
       mssql:
-        condition: service_started
+        condition: service_healthy
     environment:
       MSSQL_SA_PASSWORD: StrongPass123!
     volumes:
@@ -124,10 +171,14 @@ services:
       Jwt__Audience: df.userservice.client
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       mssql-init:
         condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - user-api
 
   df.menuservice.db:
     image: postgres:16
@@ -146,12 +197,20 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      default:
+        aliases:
+          - menu-db
 
   df.redis:
     image: redis:7
     container_name: df.redis
     ports:
       - "6379:6379"
+    networks:
+      default:
+        aliases:
+          - redis-cache
 
   df.menuservice.api:
     image: df.menuservice.api:latest
@@ -161,12 +220,12 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=df.menuservice.db;Port=5432;Database=MenuServiceDb;Username=MenuService;Password=MenuService2025!
+      ConnectionStrings__DefaultConnection: Host=menu-db;Port=5432;Database=MenuServiceDb;Username=MenuService;Password=MenuService2025!
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__UserName: guest
       RabbitMQ__Password: guest
       RabbitMQ__Port: "5672"
-      Redis__Host: df.redis
+      Redis__Host: redis-cache
       Redis__Port: "6379"
       Redis__InstanceName: MenuServiceCache
       Redis__DefaultDatabase: "0"
@@ -176,14 +235,19 @@ services:
       Jwt__Audience: df.userservice.client
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
       df.menuservice.db:
         condition: service_healthy
       df.redis:
         condition: service_started
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - menu-api
 
   df.trackingservice.db:
+    platform: linux/amd64
     image: postgis/postgis:16-3.4
     container_name: df.trackingservice.db
     environment:
@@ -195,11 +259,15 @@ services:
     volumes:
       - tracking_service_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U TrackingService -d TrackingServiceDb"]
+      test: ["CMD-SHELL", "pg_isready -U TrackingService"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      default:
+        aliases:
+          - tracking-db
 
   df.trackingservice.mongo:
     image: mongo:7
@@ -213,6 +281,28 @@ services:
     volumes:
       - tracking_mongo_data:/data/db
       - ./docker/tracking-mongo-init.js:/docker-entrypoint-initdb.d/tracking-mongo-init.js:ro
+    networks:
+      default:
+        aliases:
+          - tracking-mongo
+
+  tracking-db-collation-fix:
+    image: postgis/postgis:16-3.4
+    container_name: tracking-db-collation-fix
+    platform: linux/amd64
+    depends_on:
+      df.trackingservice.db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: TrackingService2025!
+    entrypoint: >
+      /bin/sh -c "
+      until pg_isready -h tracking-db -U TrackingService -d TrackingServiceDb >/dev/null 2>&1; do
+        sleep 2;
+      done;
+      psql -h tracking-db -U TrackingService -d TrackingServiceDb -c 'ALTER DATABASE \"TrackingServiceDb\" REFRESH COLLATION VERSION;' || true
+      "
+    restart: "no"
 
   df.trackingservice.api:
     image: df.trackingservice.api:latest
@@ -222,29 +312,83 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=df.trackingservice.db;Port=5432;Database=TrackingServiceDb;Username=TrackingService;Password=TrackingService2025!
-      ConnectionStrings__MongoDdConnection: mongodb://TrackingService:TrackingService2025!@df.trackingservice.mongo:27017/TrackingServiceMongoDb
+      ConnectionStrings__DefaultConnection: Host=tracking-db;Port=5432;Database=TrackingServiceDb;Username=TrackingService;Password=TrackingService2025!
+      ConnectionStrings__MongoDdConnection: mongodb://TrackingService:TrackingService2025!@tracking-mongo:27017/TrackingServiceMongoDb
       RabbitMQ__HostName: rabbitmq
       RabbitMQ__UserName: guest
       RabbitMQ__Password: guest
       RabbitMQ__Port: "5672"
     depends_on:
       rabbitmq:
-        condition: service_started
-      df.trackingservice.db:
         condition: service_healthy
+      tracking-db-collation-fix:
+        condition: service_completed_successfully
       df.trackingservice.mongo:
         condition: service_started
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - tracking-api
 
   df.promoservice.api:
-    image: df.promoservice.api:latest
+    build:
+      context: ./backend/promo-service
+      dockerfile: Dockerfile
     container_name: df.promoservice.api
     ports:
       - "5007:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
+      PORT: 8080
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: food-delivery-platform-jwt-key-1234567890!
+      JWT_ISSUER: df.userservice
+      JWT_AUDIENCE: df.userservice.client
+      PROMO_DATA_FILE: /data/promos.json
+    volumes:
+      - promo_service_data:/data
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - promo-api
+
+  df.adminservice.api:
+    build:
+      context: ./backend/admin-service
+      dockerfile: Dockerfile
+    container_name: df.adminservice.api
+    ports:
+      - "5011:5011"
+    environment:
+      PORT: 5011
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: food-delivery-platform-jwt-key-1234567890!
+      JWT_ISSUER: df.userservice
+      JWT_AUDIENCE: df.userservice.client
+      USER_DB_SERVER: mssql
+      USER_DB_PORT: "1433"
+      USER_DB_USER: DFUserService
+      USER_DB_PASSWORD: UserService2025!
+      USER_DB_NAME: UserServiceDb
+      ORDER_DB_URL: postgresql://OrderService:OrderService2025!@order-db:5432/OrderServiceDb
+      MENU_DB_URL: postgresql://MenuService:MenuService2025!@menu-db:5432/MenuServiceDb
+      PROMO_SERVICE_URL: http://promo-api:8080/api/Promos
+    depends_on:
+      mssql:
+        condition: service_healthy
+      df.orderservice.db:
+        condition: service_healthy
+      df.menuservice.db:
+        condition: service_healthy
+      df.promoservice.api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - admin-api
 
   food-split-service:
     build:
@@ -255,11 +399,11 @@ services:
       - "5010:5010"
     environment:
       PORT: 5010
-      DATABASE_URL: postgresql://OrderService:OrderService2025!@df.orderservice.db:5432/OrderServiceDb
+      DATABASE_URL: postgresql://OrderService:OrderService2025!@order-db:5432/OrderServiceDb
       JWT_SECRET: food-delivery-platform-jwt-key-1234567890!
       JWT_ISSUER: df.userservice
       JWT_AUDIENCE: df.userservice.client
-      ORDER_SERVICE_URL: http://df.orderservice.api:8080/api/Order
+      ORDER_SERVICE_URL: http://order-api:8080/api/Order
       CORS_ORIGIN: http://localhost:5173
     depends_on:
       df.orderservice.db:
@@ -267,10 +411,16 @@ services:
       df.orderservice.api:
         condition: service_started
     restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - food-split-api
 
 volumes:
+  rabbitmq_data:
   order_service_data:
   mssql_data:
   menu_service_data:
   tracking_service_data:
   tracking_mongo_data:
+  promo_service_data:

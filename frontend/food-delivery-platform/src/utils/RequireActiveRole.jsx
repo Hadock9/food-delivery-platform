@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useUser } from "../context/UserContext.jsx";
-import { resolveAccountRole } from "./accountRole.js";
+import { resolveAppRole } from "./appRole.js";
 import { homePathForRole } from "./roleRoutes.js";
 
 /**
@@ -10,7 +10,7 @@ import { homePathForRole } from "./roleRoutes.js";
  */
 export default function RequireActiveRole({ role, children }) {
     const location = useLocation();
-    const { loading, accounts, currentAccountId } = useUser();
+    const { loading, user, accounts, currentAccountId, currentSystemRole } = useUser();
 
     if (loading) {
         return (
@@ -20,10 +20,7 @@ export default function RequireActiveRole({ role, children }) {
         );
     }
 
-    const currentAcc = accounts.find((a) => a.id === currentAccountId);
-    const fromContext = resolveAccountRole(currentAcc?.accountType);
-    const fromStorage = resolveAccountRole(localStorage.getItem("currentAccountType"));
-    const activeRole = fromContext ?? fromStorage;
+    const activeRole = resolveAppRole(user, accounts, currentAccountId, currentSystemRole);
 
     if (activeRole && activeRole !== role) {
         const target = homePathForRole(activeRole);
