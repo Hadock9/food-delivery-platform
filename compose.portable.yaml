@@ -1,0 +1,15 @@
+services:
+  df.userservice.api:
+    image: ${USER_SERVICE_IMAGE:-polyflow/userservice:portable-arm64}
+    pull_policy: never
+    platform: ${PREBUILT_PLATFORM:-linux/arm64}
+
+  df.menuservice.api:
+    image: ${MENU_SERVICE_IMAGE:-polyflow/menuservice:portable-arm64}
+    pull_policy: never
+    platform: ${PREBUILT_PLATFORM:-linux/arm64}
+
+  df.trackingservice.api:
+    image: ${TRACKING_SERVICE_IMAGE:-polyflow/trackingservice:portable-arm64}
+    pull_policy: never
+    platform: ${PREBUILT_PLATFORM:-linux/arm64}
