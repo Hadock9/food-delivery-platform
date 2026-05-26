@@ -6,7 +6,7 @@
 - `df.menuservice.api:latest`
 - `df.trackingservice.api:latest`
 
-`compose.portable.yaml` змушує Docker брати їх тільки з локально завантаженого архіву і не робити `pull`.
+`compose.portable.yaml` змушує Docker брати їх тільки з локально завантажених локальних образів і не робити `pull`.
 
 ## 1. Підготувати архів на першому ПК
 
@@ -14,13 +14,10 @@
 
 ```bash
 cd "/Users/vasylfalyovskij/Desktop/Arsen/WEB"
-docker tag df.userservice.api:latest polyflow/userservice:portable-arm64
-docker tag df.menuservice.api:latest polyflow/menuservice:portable-arm64
-docker tag df.trackingservice.api:latest polyflow/trackingservice:portable-arm64
 docker save -o polyflow-portable-images-arm64.tar \
-  polyflow/userservice:portable-arm64 \
-  polyflow/menuservice:portable-arm64 \
-  polyflow/trackingservice:portable-arm64
+  df.userservice.api:latest \
+  df.menuservice.api:latest \
+  df.trackingservice.api:latest
 ```
 
 Потім перенеси на другий ПК:
@@ -35,7 +32,12 @@ PowerShell:
 ```powershell
 cd C:\path\to\WEB
 docker load -i .\polyflow-portable-images-arm64.tar
-Copy-Item .\.env.portable.example .\.env.portable
+@"
+PREBUILT_PLATFORM=linux/arm64
+USER_SERVICE_IMAGE=df.userservice.api:latest
+MENU_SERVICE_IMAGE=df.menuservice.api:latest
+TRACKING_SERVICE_IMAGE=df.trackingservice.api:latest
+"@ | Set-Content .\.env.portable
 ```
 
 ## 3. Підняти стек на другому ПК
