@@ -7,10 +7,9 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["DF.Gateway.API/DF.Gateway.API.csproj", "DF.Gateway.API/"]
-RUN dotnet restore "DF.Gateway.API/DF.Gateway.API.csproj"
 COPY . .
-WORKDIR "/src/DF.Gateway.API"
+RUN dotnet restore "Gateway/DF.Gateway.API/DF.Gateway.API.csproj"
+WORKDIR "/src/Gateway/DF.Gateway.API"
 RUN dotnet build "./DF.Gateway.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

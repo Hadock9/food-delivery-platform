@@ -2,6 +2,15 @@
   df.gateway.api:
     image: df.gateway.api
     build:
-      context: .
-      dockerfile: DF.Gateway.API/Dockerfile
+      context: ..
+      dockerfile: Gateway/DF.Gateway.API/Dockerfile
+    container_name: df.gateway.api
+    ports:
+      - "5001:8080"
+    networks:
+      - df-network
+
+networks:
+  df-network:
+    external: true
 

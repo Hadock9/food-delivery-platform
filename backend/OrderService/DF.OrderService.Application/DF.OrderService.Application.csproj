@@ -7,21 +7,16 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Contracts\DF.Contracts\DF.Contracts.csproj" />
       <ProjectReference Include="..\DF.OrderService.Contracts\DF.OrderService.Contracts.csproj" />
       <ProjectReference Include="..\DF.OrderService.Domain\DF.OrderService.Domain.csproj" />
       <ProjectReference Include="..\DF.OrderService.Infrastructure\DF.OrderService.Infrastructure.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="DF.Contracts" Version="1.0.1-pre-release7" />
       <PackageReference Include="RabbitMQ.Client" Version="7.2.0" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Reference Include="Microsoft.Extensions.Hosting.Abstractions">
-        <HintPath>..\..\..\..\..\..\..\..\..\Program Files\dotnet\shared\Microsoft.AspNetCore.App\9.0.2\Microsoft.Extensions.Hosting.Abstractions.dll</HintPath>
-      </Reference>
     </ItemGroup>
 
 </Project>

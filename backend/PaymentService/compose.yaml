@@ -2,8 +2,8 @@
   df.paymentservice.api:
     image: df.paymentservice.api
     build:
-      context: .
-      dockerfile: DF.PaymentService.API/Dockerfile
+      context: ..
+      dockerfile: PaymentService/DF.PaymentService.API/Dockerfile
     container_name: df.paymentservice.api
     ports:
       - "5007:8090"

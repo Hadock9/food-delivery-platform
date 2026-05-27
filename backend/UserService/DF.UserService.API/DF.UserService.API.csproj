@@ -8,7 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="DF.Contracts" Version="1.0.1-pre-release5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.5">
             <PrivateAssets>all</PrivateAssets>
@@ -20,6 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\Contracts\DF.Contracts\DF.Contracts.csproj" />
         <ProjectReference Include="..\DF.UserService.Application\DF.UserService.Application.csproj" />
     </ItemGroup>
 

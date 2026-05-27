@@ -4,8 +4,8 @@ services:
   df.orderservice.api:
     image: df.orderservice.api
     build:
-      context: .
-      dockerfile: DF.OrderService.API/Dockerfile
+      context: ..
+      dockerfile: OrderService/DF.OrderService.API/Dockerfile
     container_name: df.orderservice.api
     ports:
       - "5005:8090"

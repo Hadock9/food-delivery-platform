@@ -1,16 +1,19 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
-USER $APP_UID
 WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    libgssapi-krb5-2 \
+    ca-certificates && \
+    update-ca-certificates
+USER $APP_UID
 EXPOSE 8080
 EXPOSE 8081
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["DF.MenuService.API/DF.MenuService.API.csproj", "DF.MenuService.API/"]
-RUN dotnet restore "DF.MenuService.API/DF.MenuService.API.csproj"
 COPY . .
-WORKDIR "/src/DF.MenuService.API"
+RUN dotnet restore "MenuService/DF.MenuService.API/DF.MenuService.API.csproj"
+WORKDIR "/src/MenuService/DF.MenuService.API"
 RUN dotnet build "./DF.MenuService.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

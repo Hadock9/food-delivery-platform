@@ -4,8 +4,8 @@ services:
   df.menuservice.api:
     image: df.menuservice.api
     build:
-      context: .
-      dockerfile: DF.MenuService.API/Dockerfile
+      context: ..
+      dockerfile: MenuService/DF.MenuService.API/Dockerfile
     container_name: df.menuservice.api
     ports:
       - "5004:8080"
@@ -14,6 +14,10 @@ services:
       ConnectionStrings__DefaultConnection: Host=df.menuservice.db;Port=5432;Database=MenuServiceDb;Username=MenuService;Password=MenuService2025!
       Redis__Host: df.redis
       Redis__Port: 6379
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: 5672
     depends_on:
       - df.menuservice.db
     networks:

@@ -4,8 +4,8 @@ services:
   df.trackingservice.api:
     image: df.trackingservice.api
     build:
-      context: .
-      dockerfile: DF.TrackingService.API/Dockerfile
+      context: ..
+      dockerfile: TrackingService/DF.TrackingService.API/Dockerfile
     container_name: df.trackingservice.api
     ports:
       - "5006:8100"
@@ -13,6 +13,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       Redis__ConnectionString: df.redis:6379
       ConnectionStrings__DefaultConnection: Host=df.trackingservice.db;Port=5432;Database=TrackingServiceDb;Username=TrackingService;Password=TrackingService2025!
+      RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: 5672
     depends_on:
       - df.trackingservice.db
       - df.trackingservice.mongo
