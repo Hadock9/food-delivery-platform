@@ -1,0 +1,655 @@
+.restaurant-page-glovo {
+    min-height: 100vh;
+    background: #0a0e17;
+    color: #e2e8f0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-image:
+            radial-gradient(circle at 10% 20%, rgba(124, 92, 255, 0.15) 0%, transparent 20%),
+            radial-gradient(circle at 90% 80%, rgba(0, 212, 255, 0.15) 0%, transparent 20%),
+            linear-gradient(180deg, #0a0e17 0%, #000000 100%);
+}
+
+/* ===== HERO ===== */
+.restaurant-hero {
+    position: relative;
+    height: 380px;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(124, 92, 255, 0.2);
+}
+
+.hero-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.65) contrast(1.1);
+    transition: transform 10s ease-in-out;
+}
+
+.hero-bg-placeholder {
+    background: linear-gradient(135deg, rgba(124, 92, 255, 0.2), rgba(0, 212, 255, 0.12));
+    filter: none;
+}
+
+.dish-card.big .image-placeholder {
+    width: 100%;
+    height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.85rem;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.restaurant-hero:hover .hero-bg {
+    transform: scale(1.08);
+}
+
+.hero-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 32px 40px;
+    background: linear-gradient(180deg, transparent 0%, rgba(10, 14, 23, 0.95) 70%);
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+    backdrop-filter: blur(12px);
+}
+
+.back-btn {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.back-btn:hover {
+    background: rgba(124, 92, 255, 0.4);
+    border-color: #7c5cff;
+    transform: translateX(-4px);
+}
+
+.restaurant-name {
+    font-size: 42px;
+    font-weight: 900;
+    margin: 0;
+    background: linear-gradient(90deg, #a78bff, #7c5cff, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+}
+
+.restaurant-location {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.geo-retry-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 212, 255, 0.45);
+    background: rgba(0, 212, 255, 0.12);
+    color: #e6eef6;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.geo-retry-btn:hover {
+    filter: brightness(1.1);
+}
+
+.restaurant-directions-hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(124, 92, 255, 0.9), rgba(0, 212, 255, 0.5));
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    transition: filter 0.2s, transform 0.2s;
+}
+
+.restaurant-directions-hero-btn:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.restaurant-map-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 24px 8px;
+}
+
+/* ===== STICKY HEADER ===== */
+.sticky-header {
+    position: sticky;
+    top: 80px;
+    z-index: 50;
+    background: rgba(10, 14, 23, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(124, 92, 255, 0.2);
+    padding: 16px 24px;
+    gap: 16px;
+}
+
+/* SEARCH BAR — Glassmorphism + Neon */
+.search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.search-input-wrapper input {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    padding: 14px 48px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(124, 92, 255, 0.4);
+    color: white;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.search-input-wrapper input:focus {
+    outline: none;
+    border-color: #7c5cff;
+    box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.3), 0 8px 30px rgba(124, 92, 255, 0.2);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.restaurant-search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #7c5cff;
+    z-index: 1;
+}
+
+.clear-search {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #64748b;
+    transition: color 0.2s;
+}
+
+.clear-search:hover {
+    color: #e2e8f0;
+}
+
+/* CATEGORIES — Pill buttons with glow */
+.categories-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 8px 0;
+    scrollbar-width: none;
+}
+
+.categories-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+.category-btn {
+    padding: 10px 20px;
+    border-radius: 50px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(124, 92, 255, 0.3);
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.category-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, #7c5cff, #00d4ff);
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: -1;
+}
+
+.category-btn.active::before,
+.category-btn:hover::before {
+    opacity: 1;
+}
+
+.category-btn.active,
+.category-btn:hover {
+    color: white;
+    border-color: transparent;
+}
+
+.sort-bar {
+    align-items: center;
+    align-self: center;
+}
+
+/* SORT */
+.sort-bar select {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(124, 92, 255, 0.4);
+    border-radius: 14px;
+    padding: 10px 16px;
+    color: #e2e8f0;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.sort-bar select:hover {
+    background: rgba(124, 92, 255, 0.2);
+}
+
+/* ===== MENU CONTENT ===== */
+.menu-content {
+    padding: 40px 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.category-section {
+    margin-bottom: 70px;
+    scroll-margin-top: 190px;
+}
+
+.category-title {
+    font-size: 32px;
+    font-weight: 900;
+    margin-bottom: 28px;
+    background: linear-gradient(90deg, #c0b3ff, #7c5cff, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+}
+
+.category-title .count {
+    margin-left: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #64748b;
+    background: none;
+    -webkit-text-fill-color: #64748b;
+}
+
+/* DISH CARD — Premium glass card */
+.dishes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 28px;
+}
+
+.dish-card.big {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(124, 92, 255, 0.2);
+    backdrop-filter: blur(16px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    text-decoration: none;
+    color: inherit;
+}
+
+.dish-card.big:hover {
+    border-color: rgba(124, 92, 255, 0.6);
+    box-shadow: 0 20px 50px rgba(124, 92, 255, 0.25);
+}
+
+.dish-card.big img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: transform 0.6s ease;
+}
+
+.hit-badge {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: linear-gradient(135deg, #ff3c7d, #ff6a00);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+    box-shadow: 0 4px 15px rgba(255, 60, 125, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.dish-info {
+    padding: 20px;
+}
+
+.dish-info h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: #f8fafc;
+}
+
+.dish-info .desc {
+    font-size: 14.5px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.dish-info .bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.price {
+    font-size: 22px;
+    font-weight: 900;
+    background: linear-gradient(90deg, #7c5cff, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.rating {
+    font-weight: 700;
+    color: #fbbf24;
+    font-size: 15px;
+}
+
+/* SEARCH RESULTS */
+.search-results {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+}
+
+.dish-card-search {
+    display: flex;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(124, 92, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.dish-card-search:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(124, 92, 255, 0.2);
+}
+
+.dish-card-search img {
+    width: 140px;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-results {
+    text-align: center;
+    font-size: 18px;
+    color: #64748b;
+    padding: 60px 20px;
+}
+
+.restaurant-tagline {
+    margin: 8px 0 12px;
+    font-size: 15px;
+    color: #94a3b8;
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.restaurant-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.restaurant-meta-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(124, 92, 255, 0.25);
+}
+
+.restaurant-page-loading,
+.restaurant-page-error,
+.not-found {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 40px;
+    text-align: center;
+    color: #94a3b8;
+}
+
+.restaurant-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(124, 92, 255, 0.2);
+    border-top-color: #7c5cff;
+    border-radius: 50%;
+    animation: restaurantSpin 0.8s linear infinite;
+}
+
+@keyframes restaurantSpin {
+    to { transform: rotate(360deg); }
+}
+
+.restaurant-error-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #7c5cff;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.menu-content--loading,
+.menu-empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: #94a3b8;
+}
+
+.menu-empty a {
+    color: #7c5cff;
+    margin-top: 12px;
+    display: inline-block;
+}
+
+.dishes-grid--cards {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.menu-dish-card {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(124, 92, 255, 0.2);
+    backdrop-filter: blur(12px);
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.menu-dish-card:hover {
+    border-color: rgba(124, 92, 255, 0.5);
+    box-shadow: 0 12px 36px rgba(124, 92, 255, 0.15);
+}
+
+.menu-dish-card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+}
+
+.menu-dish-card-link img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    display: block;
+}
+
+.menu-dish-card-body {
+    padding: 16px 56px 16px 16px;
+}
+
+.menu-dish-card-body h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.menu-dish-card-body .desc {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0 0 10px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.menu-dish-card-body .bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.menu-dish-add-btn {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #041021;
+    background: linear-gradient(135deg, #7c5cff, #00d4ff);
+    box-shadow: 0 6px 20px rgba(124, 92, 255, 0.4);
+    transition: transform 0.2s ease;
+    z-index: 3;
+}
+
+.menu-dish-add-btn:hover {
+    transform: scale(1.08);
+}
+
+.restaurant-fab-cart {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, #7c5cff, #ff6b6b);
+    box-shadow: 0 8px 28px rgba(124, 92, 255, 0.45);
+    z-index: 100;
+    transition: transform 0.2s ease;
+}
+
+.restaurant-fab-cart:hover {
+    transform: scale(1.06);
+}
+
+.restaurant-fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 800;
+    background: #ff6b6b;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.restaurant-cart-toast {
+    position: fixed;
+    bottom: 96px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    background: rgba(16, 22, 35, 0.95);
+    border: 1px solid rgba(124, 92, 255, 0.4);
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 14px;
+    z-index: 101;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.restaurant-cart-toast svg {
+    color: #4ade80;
+}

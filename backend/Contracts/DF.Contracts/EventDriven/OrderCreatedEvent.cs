@@ -10,10 +10,7 @@ public record OrderCreatedEvent(
     DateTime OrderDate,
     decimal TotalPrice,
     LocationDto DeliverTo,
-    LocationDto DeliverFrom,
-    string Currency,
-    string PaymentMethod,
-    string BusinessStripeAccountId
+    LocationDto DeliverFrom
 );
 
 public record LocationDto(

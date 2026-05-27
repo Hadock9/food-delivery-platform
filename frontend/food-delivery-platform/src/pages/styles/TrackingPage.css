@@ -1,0 +1,31 @@
+.tracking-page {
+    flex: 1;
+    padding: 24px;
+    color: #e6eef6;
+}
+
+.tracking-page .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #9fb0c3;
+    text-decoration: none;
+    margin-bottom: 16px;
+}
+
+.tracking-status-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.tracking-address-line {
+    margin-top: 8px;
+    font-size: 0.95rem;
+    color: #b7c2cb;
+}
+
+.tracking-page .muted { color: #97a0a9; }
+.tracking-page .error { color: #ff6b6b; }

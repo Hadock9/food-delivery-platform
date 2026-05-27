@@ -1,6 +1,5 @@
-﻿using System.Text.Json.Serialization;
-using DF.UserService.API.Extensions;
-using DF.UserService.API.Middlewares;
+﻿using System.Text;
+using System.Text.Json.Serialization;
 using DF.UserService.Application.Factories;
 using DF.UserService.Application.Factories.Interfaces;
 using DF.UserService.Application.Messaging;
@@ -10,96 +9,100 @@ using DF.UserService.Application.Repositories;
 using DF.UserService.Application.Repositories.Interfaces;
 using DF.UserService.Application.Services;
 using DF.UserService.Application.Services.Interfaces;
-using DF.UserService.Contracts.Models.DTO;
 using DF.UserService.Domain.Entities;
 using DF.UserService.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// =======================
-// CORS
-// =======================
+// CORS Policy
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5229")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174")
+            .AllowAnyHeader()                     // дозволяємо всі заголовки
+            .AllowAnyMethod()                   // дозволяємо всі HTTP методи
+            .AllowCredentials();               // розкоментуй, якщо потрібні куки або авторизація
     });
 });
-
-// =======================
-// DATABASE
-// =======================
+// MSSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("UserServiceDatabase")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("UserServiceMSSQLDatabase")));
 
-// =======================
-// IDENTITY (USER MANAGEMENT ONLY)
-// =======================
+// Identity
 builder.Services.AddIdentity<User, IdentityRole<Guid>>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-// =======================
-// AUTHORIZATION (NO JWT HERE)
-// =======================
+// JWT 
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection.GetValue<string>("Key")!;
+var issuer = jwtSection.GetValue<string>("Issuer");
+var audience = jwtSection.GetValue<string>("Audience");
+
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        // Для refresh token endpoints не потрібна додаткова логіка тут
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = issuer,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+
 builder.Services.AddAuthorization();
 
-// =======================
-// REPOSITORIES
-// =======================
+//Repositories
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IPayoutRepository, PayoutRepository>();
 
-// =======================
-// SERVICES
-// =======================
+// Services
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.AddScoped<ITokenService, TokenService>(); // issuing tokens only
+builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
-builder.Services.AddScoped<IProcessedWebhookStore, ProcessedWebhookStore>();
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IUserContext, UserContext>();
-
-// =======================
-// STRIPE
-// =======================
-builder.Services.Configure<StripeOptions>(
-    builder.Configuration.GetSection("Stripe")
-);
-builder.Services.AddSingleton<IStripeConnectService, StripeConnectService>();
-
-// =======================
-// FACTORIES
-// =======================
+//Builders
 builder.Services.AddScoped<IAccountFactory, AccountFactory>();
 
-// =======================
-// RABBITMQ
-// =======================
+// RabbitMQ connection
 builder.Services.AddSingleton<IConnection>(sp =>
 {
+    var config = builder.Configuration.GetSection("RabbitMQ");
     var factory = new ConnectionFactory
     {
-        Uri = new Uri(builder.Configuration["RabbitMQ:Url"]
-                      ?? throw new InvalidOperationException("RabbitMQ Url is missing"))
+        HostName = config["HostName"],
+        UserName = config["UserName"],
+        Password = config["Password"],
+        Port = int.Parse(config["Port"])
     };
     return factory.CreateConnectionAsync().GetAwaiter().GetResult();
 });
 
-// =======================
-// CONSUMERS
-// =======================
+// Consumer
 builder.Services.AddSingleton<IConsumer, GetAccountConsumer>();
 builder.Services.AddSingleton<IConsumer, GetBusinessAccountConsumer>();
 builder.Services.AddSingleton<IConsumer, GetCustomerAccountConsumer>();
@@ -107,52 +110,80 @@ builder.Services.AddSingleton<IConsumer, GetCourierAccountConsumer>();
 
 builder.Services.AddHostedService<ConsumerHostedService>();
 
-// =======================
-// RPC CLIENTS
-// =======================
+// RPC Clients
 builder.Services.AddSingleton<TrackingServiceRpcClient>();
 
-// =======================
-// CONTROLLERS & JSON
-// =======================
+
+builder.Services.AddControllers();
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.IncludeFields = true;
-        o.JsonSerializerOptions.UnknownTypeHandling =
-            JsonUnknownTypeHandling.JsonElement;
+        o.JsonSerializerOptions.UnknownTypeHandling = JsonUnknownTypeHandling.JsonElement;
     });
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Enter 'Bearer {your token}'"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
+
+
 var app = builder.Build();
 
-app.UseCustomExceptionMiddleware();
-
-// =======================
-// MIGRATIONS
-// =======================
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    const int maxAttempts = 15;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            db.Database.Migrate();
+            break;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            Console.WriteLine($"DB migrate attempt {attempt} failed: {ex.Message}. Retrying...");
+            Thread.Sleep(TimeSpan.FromSeconds(3));
+        }
+    }
 }
 
-// =======================
-// MIDDLEWARE
-// =======================
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors("AllowFrontend");
 
-app.UseMiddleware<InternalAuthMiddleware>();
-app.UseMiddleware<UserContextMiddleware>();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGet("/health", () => "OK")
-    .AllowAnonymous();
 app.Run();

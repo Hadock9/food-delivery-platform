@@ -1,0 +1,107 @@
+.delivery-map-widget {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.dmw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 8px;
+}
+
+.dmw-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e6eef6;
+}
+
+.dmw-route-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  color: #e6eef6;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.dmw-route-hint {
+  color: #7ee8ff !important;
+}
+
+.dmw-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 16px 12px;
+  font-size: 0.85rem;
+  color: #b7c2cb;
+}
+
+.dmw-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.dmw-legend-item.destination {
+  color: #ffb4b4;
+}
+
+.dmw-muted {
+  font-size: 0.8rem;
+  color: #97a0a9;
+}
+
+.dmw-error {
+  font-size: 0.85rem;
+  color: #ff8a8a;
+}
+
+.dmw-map {
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dmw-leaflet {
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+}
+
+.delivery-map-widget.compact .dmw-header {
+  padding: 10px 12px 6px;
+}
+
+.delivery-map-widget.compact .dmw-title {
+  font-size: 0.9rem;
+}
+
+/* Custom pin markers */
+.dm-pin-wrap {
+  background: transparent;
+  border: none;
+}
+
+.dm-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  color: #041021;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}

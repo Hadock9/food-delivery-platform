@@ -1,53 +1,60 @@
-﻿// src/context/UserContext.jsx
+// src/context/UserContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { getProfileData, switchAccount } from "../api/Profile";
-import { logout } from "../api/Auth.ts";
+import { getProfileData, switchAccount } from "../api/Profile.jsx";
+import { refresh, logout } from "../api/Auth.jsx";
+import { accountTypeToStorageValue } from "../utils/accountRole.js";
+import { CURRENT_SYSTEM_ROLE_KEY, isAdminEligible } from "../utils/appRole.js";
 
-const UserContext = createContext(null);
+const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [accounts, setAccounts] = useState([]);
     const [currentAccountId, setCurrentAccountId] = useState(null);
+    const [currentSystemRole, setCurrentSystemRole] = useState(
+        localStorage.getItem(CURRENT_SYSTEM_ROLE_KEY)
+    );
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
-    // =========================
-    // LOAD PROFILE
-    // =========================
     const loadUser = async () => {
         try {
-            setLoading(true);
-            setError(null);
-
-
-            const token = localStorage.getItem("accessToken");
+            let token = localStorage.getItem("accessToken");
             if (!token) {
-                setUser(null);
-                setAccounts([]);
-                setCurrentAccountId(null);
-                return;
+                return null;
             }
-            
-            const data = await getProfileData();
-
+            const data = await getProfileData(token);
             setUser(data.user);
             setAccounts(data.accounts);
             setCurrentAccountId(data.currentAccount.id);
+            const adminEligible = isAdminEligible(data.user);
 
-            const currentAcc = data.accounts.find(
-                a => a.id === data.currentAccount.id
-            );
+            // Зберігаємо accountType у localStorage
+            const currentAcc = data.accounts.find(a => a.id === data.currentAccount.id);
 
             if (currentAcc) {
-                localStorage.setItem("currentAccountType", currentAcc.accountType);
-                localStorage.setItem("currentAccountId", currentAcc.id);
-                localStorage.setItem("currentAccountName", currentAcc.name ?? "");
+                const storedType = accountTypeToStorageValue(currentAcc.accountType);
+                if (storedType != null) {
+                    localStorage.setItem("currentAccountType", storedType);
+                }
+                localStorage.setItem("currentAccountId", data.currentAccount.id);
             }
+
+            const storedSystemRole = localStorage.getItem(CURRENT_SYSTEM_ROLE_KEY);
+            if (adminEligible) {
+                const nextSystemRole = storedSystemRole ?? "Admin";
+                localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, nextSystemRole);
+                setCurrentSystemRole(nextSystemRole);
+            } else {
+                localStorage.removeItem(CURRENT_SYSTEM_ROLE_KEY);
+                setCurrentSystemRole(null);
+            }
+            return data;
         } catch (err) {
-            // ✅ новий стандарт
-            setError(err.message);
+            if (err?.response?.status !== 401) {
+                console.error("Load user error:", err);
+            }
             setUser(null);
+            return null;
         } finally {
             setLoading(false);
         }
@@ -57,29 +64,41 @@ export const UserProvider = ({ children }) => {
         loadUser();
     }, []);
 
-    // =========================
-    // SWITCH ACCOUNT
-    // =========================
     const handleSwitchAccount = async (accountId) => {
         try {
-            setError(null);
+            localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, "Account");
+            setCurrentSystemRole("Account");
+            let token = localStorage.getItem("accessToken");
+            if (!token) {
+                const tokens = await refresh();
+                token = tokens.accessToken;
+            }
 
-            await switchAccount(accountId);
-            await loadUser();
+            await switchAccount(accountId, token);
+            await loadUser(); // оновлюємо дані
 
-            // UX‑рішення — залишаємо як було
+            // ПЕРЕЗАВАНТАЖУЄМО СТОРІНКУ ПІСЛЯ ПЕРЕМИКАННЯ
             window.location.reload();
         } catch (err) {
-            setError(err.message);
+            console.error("Switch account error:", err);
         }
     };
 
-    // =========================
-    // LOGOUT
-    // =========================
+    const handleSwitchSystemRole = (role) => {
+        if (role) {
+            localStorage.setItem(CURRENT_SYSTEM_ROLE_KEY, role);
+            setCurrentSystemRole(role);
+        } else {
+            localStorage.removeItem(CURRENT_SYSTEM_ROLE_KEY);
+            setCurrentSystemRole(null);
+        }
+    };
+
     const handleLogout = async () => {
         try {
             await logout();
+        } catch (err) {
+            console.warn("Logout error:", err);
         } finally {
             localStorage.clear();
             window.location.href = "/food-delivery-platform/";
@@ -92,12 +111,12 @@ export const UserProvider = ({ children }) => {
                 user,
                 accounts,
                 currentAccountId,
+                currentSystemRole,
                 loading,
-                error,
                 reloadUser: loadUser,
                 switchAccount: handleSwitchAccount,
+                switchSystemRole: handleSwitchSystemRole,
                 logout: handleLogout,
-                clearError: () => setError(null)
             }}
         >
             {children}

@@ -1,0 +1,114 @@
+/* Темна тема — узгоджено з pages/styles/RegisterForm.css */
+.page-wrapper {
+    width: 100%;
+    min-height: calc(100vh - 72px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    color: var(--text);
+}
+
+.register-container {
+    max-width: 450px;
+    width: 100%;
+    padding: 2.5rem;
+    background: rgba(15, 17, 20, 0.92);
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    text-align: center;
+    animation: fadeIn 0.8s ease-in-out;
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(12px);
+}
+
+.register-container h2 {
+    color: var(--text);
+    margin-bottom: 2rem;
+    font-weight: 700;
+    font-size: 2rem;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-3));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.register-form input {
+    width: 100%;
+    padding: 16px;
+    margin: 10px 0;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    font-size: 1rem;
+    background: var(--bg-700);
+    color: var(--text);
+    transition: all 0.3s ease;
+}
+
+.register-form input:focus {
+    border-color: rgba(124, 92, 255, 0.5);
+    box-shadow: 0 0 12px rgba(124, 92, 255, 0.2);
+    background: #1a1e24;
+}
+
+.register-form button {
+    width: 100%;
+    padding: 16px;
+    margin-top: 1.5rem;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(124, 92, 255, 0.25);
+}
+
+.register-form button:hover {
+    filter: brightness(1.08);
+    transform: translateY(-2px);
+}
+
+.login-text {
+    margin-top: 1.5rem;
+    font-size: 0.95rem;
+    color: var(--muted-2);
+}
+
+.login-text a {
+    color: var(--accent-3);
+    font-weight: 600;
+}
+
+.login-text a:hover {
+    color: var(--text);
+    text-decoration: underline;
+}
+
+.error-text {
+    color: #ff8a8a;
+    margin-bottom: 1rem;
+}
+
+.hint-text {
+    color: var(--muted);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .register-container {
+        padding: 1.5rem;
+        width: 95%;
+    }
+}

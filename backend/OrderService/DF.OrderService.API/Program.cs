@@ -1,22 +1,27 @@
-using DF.OrderService.API.Extensions;
-using DF.OrderService.API.Middlewares;
+using System.Text;
+using System.Text.Json;
 using DF.OrderService.Application.Messaging.Clients;
 using DF.OrderService.Application.Messaging.Consumers;
 using DF.OrderService.Application.Messaging.Publishers;
-using DF.OrderService.Application.Options;
 using DF.OrderService.Application.Repositories;
 using DF.OrderService.Application.Repositories.Interfaces;
 using DF.OrderService.Application.Services;
 using DF.OrderService.Application.Services.Interfaces;
 using DF.OrderService.Infrastructure.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
 
 // 🔹 Swagger
 // Swagger / OpenAPI
@@ -28,12 +33,45 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5229") // адреса фронтенду
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174")
             .AllowAnyHeader()                     // дозволяємо всі заголовки
             .AllowAnyMethod()                   // дозволяємо всі HTTP методи
             .AllowCredentials();               // розкоментуй, якщо потрібні куки або авторизація
     });
 });
+
+// JWT (shared with UserService / MenuService)
+var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection.GetValue<string>("Key")!;
+var issuer = jwtSection.GetValue<string>("Issuer");
+var audience = jwtSection.GetValue<string>("Audience");
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = issuer,
+            ValidateAudience = true,
+            ValidAudience = audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Database connection (PostgreSQL)
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -59,36 +97,27 @@ builder.Services.AddSingleton<IConnection>(sp =>
 builder.Services.AddSingleton<UserServiceRpcClient>();
 builder.Services.AddSingleton<MenuServiceRpcClient>();
 builder.Services.AddSingleton<TrackingServiceRpcClient>();
-builder.Services.Configure<CourierCompensationOptions>(
-    builder.Configuration.GetSection("CourierCompensation"));
 
 //EventPublishers
 builder.Services.AddSingleton<IEventPublisher, OrderEventPublisher>();
 
 //Consumers
 builder.Services.AddSingleton<IConsumer, LocationsCreatedConsumer>();
-builder.Services.AddSingleton<IConsumer, CourierPayoutCompletedConsumer>();
 
 builder.Services.AddHostedService<ConsumerHostedService>();
 
-builder.Services.AddAuthorization();
 
 //Repositories
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderDishRepository, OrderDishRepository>();
 
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<IUserContext, UserContext>();
-
 //Services
 builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddSingleton<ITrackingTokenService, TrackingTokenService>();
+
 builder.Services.AddHttpClient<IDistanceService, OsrmDistanceService>();
 
 
 var app = builder.Build();
-
-app.UseCustomExceptionMiddleware();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -106,9 +135,7 @@ app.UseCors("AllowFrontend");
 
 app.UseHttpsRedirection();
 
-app.UseMiddleware<InternalAuthMiddleware>();
-app.UseMiddleware<UserContextMiddleware>();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

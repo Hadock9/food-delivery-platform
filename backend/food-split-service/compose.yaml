@@ -1,0 +1,21 @@
+services:
+  food-split-service:
+    build: .
+    container_name: df.foodsplit.api
+    ports:
+      - "5010:5010"
+    environment:
+      PORT: 5010
+      DATABASE_URL: postgresql://OrderService:OrderService2025!@df.orderservice.db:5432/OrderServiceDb
+      JWT_SECRET: food-delivery-platform-jwt-key-1234567890!
+      JWT_ISSUER: df.userservice
+      JWT_AUDIENCE: df.userservice.client
+      ORDER_SERVICE_URL: http://df.orderservice.api:8080/api/Order
+      CORS_ORIGIN: http://localhost:5173
+    networks:
+      - df-network
+
+networks:
+  df-network:
+    name: df-platform
+    external: true

@@ -1,23 +1,20 @@
-using System.Globalization;
 using DF.Contracts.EventDriven;
-using DF.Contracts.Gateway.Requests.Order;
-using DF.Contracts.Gateway.Responses.Order;
 using DF.Contracts.RPC.Requests.MenuService;
 using DF.Contracts.RPC.Requests.TrackingService;
 using DF.Contracts.RPC.Requests.UserService;
-using DF.Contracts.RPC.Responses.TrackingService;
 using DF.Contracts.RPC.Responses.UserService;
-using DF.OrderService.Application.Mappers;
 using DF.OrderService.Application.Messaging.Clients;
 using DF.OrderService.Application.Messaging.Publishers;
 using DF.OrderService.Application.Repositories.Interfaces;
 using DF.OrderService.Application.Services.Interfaces;
+using DF.OrderService.Contracts.Models.Requests;
+using DF.OrderService.Contracts.Models.Responses;
 using DF.OrderService.Domain.Entities;
 
 namespace DF.OrderService.Application.Services;
 
 public class OrderService(
-    IOrderRepository orderRepository,
+    IOrderRepository orderRepository, 
     IEventPublisher eventPublisher,
     UserServiceRpcClient userServiceRpcClient,
     MenuServiceRpcClient menuServiceRpcClient,
@@ -52,6 +49,7 @@ public class OrderService(
         if (request == null)
             throw new ArgumentNullException(nameof(request));
 
+        // 3️⃣ Створюємо ордер
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -63,11 +61,7 @@ public class OrderService(
             OrderNumber = GenerateOrderNumber(),
             DeliverToId = null,
             DeliverFromId = null,
-            DeliveryFee = 0,
-            CourierFee = 0,
-            CourierPaid = false,
-            Profit = 0,
-            PaymentMethod = request.PaymentMethod.ToDomain()
+            Profit = 0
         };
 
         var orderEntity = await orderRepository.Create(order);
@@ -76,32 +70,35 @@ public class OrderService(
         {
             await orderDishRepository.Create(new OrderedDish
             {
+                Id = Guid.NewGuid(),
                 DishId = dish.DishId,
                 OrderId = orderEntity.Id
             });
         }
+        
+        // 4️⃣ Публікуємо подію (не блокуємо створення замовлення, якщо RabbitMQ тимчасово недоступний)
+        try
+        {
+            var evt = new OrderCreatedEvent(
+                OrderId: order.Id,
+                BusinessId: order.BusinessId,
+                OrderedBy: order.OrderedBy,
+                OrderDate: order.OrderDate,
+                TotalPrice: order.TotalPrice,
+                DeliverTo: new LocationDto(request.DeliverTo.FullAddress),
+                DeliverFrom: new LocationDto(request.DeliverFrom.FullAddress)
+            );
 
-        var account = await userServiceRpcClient.GetBusinessAccountAsync(
-            new GetBusinessAccountRequest(order.BusinessId));
-
-        var evt = new OrderCreatedEvent(
-            OrderId: order.Id,
-            BusinessId: order.BusinessId,
-            OrderedBy: order.OrderedBy,
-            OrderDate: order.OrderDate,
-            TotalPrice: order.TotalPrice,
-            DeliverTo: new LocationDto(request.DeliverTo.FullAddress),
-            DeliverFrom: new LocationDto(request.DeliverFrom.FullAddress),
-            Currency: "usd",
-            PaymentMethod: order.PaymentMethod.ToString(),
-            BusinessStripeAccountId: account.StripeId
-        );
-
-        await eventPublisher.PublishOrderCreatedEvent(evt);
+            await eventPublisher.PublishOrderCreatedEvent(evt);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"OrderCreated publish failed for {order.Id}: {ex.Message}");
+        }
 
         return true;
     }
-
+    
     public async Task<IEnumerable<OrderResponse>> GetAllOrdersAsync()
     {
         var orders = (await orderRepository.GetAll()).ToList();
@@ -114,7 +111,8 @@ public class OrderService(
             .Distinct()
             .ToDictionary(
                 id => id,
-                id => userServiceRpcClient.GetBusinessAccountAsync(new GetBusinessAccountRequest(id))
+                id => userServiceRpcClient.GetBusinessAccountAsync(
+                    new GetBusinessAccountRequest(id))
             );
 
         await Task.WhenAll(businessTasks.Values);
@@ -134,10 +132,7 @@ public class OrderService(
                 BusinessName: business.Name,
                 OrderedBy: o.OrderedBy,
                 OrderDate: o.OrderDate,
-                TotalPrice: o.TotalPrice,
-                DeliveryFee: o.DeliveryFee,
-                CourierFee: o.CourierFee,
-                CourierPaid: o.CourierPaid
+                TotalPrice: o.TotalPrice
             );
         });
     }
@@ -147,18 +142,23 @@ public class OrderService(
         var order = await orderRepository.Get(orderId)
                      ?? throw new InvalidOperationException($"Order {orderId} not found");
 
+        // 1️⃣ Business
         var businessTask = userServiceRpcClient.GetBusinessAccountAsync(
             new GetBusinessAccountRequest(order.BusinessId));
 
+        // 2️⃣ Customer
         var customerTask = userServiceRpcClient.GetCustomerAccountAsync(
             new GetCustomerAccountRequest(order.OrderedBy));
 
+        // 3️⃣ Courier (optional)
         Task<GetCourierAccountResponse?> courierTask = order.DeliveredById != null
             ? userServiceRpcClient.GetCourierAccountAsync(
                 new GetCourierAccountRequest(order.DeliveredById.Value))
             : Task.FromResult<GetCourierAccountResponse?>(null);
 
-        var dishesTask = menuServiceRpcClient.GetDishesAsync(new GetDishesRequest(order.Id));
+        // 4️⃣ Dishes from MenuService
+        var dishesTask = menuServiceRpcClient.GetDishesAsync(
+            new GetDishesRequest(order.Id));
 
         await Task.WhenAll(businessTask, customerTask, courierTask, dishesTask);
 
@@ -167,6 +167,7 @@ public class OrderService(
         var courier = await courierTask;
         var dishesResponse = await dishesTask;
 
+        // 5️⃣ Map dishes
         var dishDtos = dishesResponse.Dishes.Select(d =>
             new DishResponse(
                 Id: d.DishId,
@@ -177,6 +178,7 @@ public class OrderService(
             )
         ).ToList();
 
+        // 6️⃣ Build response
         return new OrderDetailsResponse(
             Id: order.Id,
             BusinessId: order.BusinessId,
@@ -187,22 +189,22 @@ public class OrderService(
             CustomerPhoneNumber: customer.PhoneNumber,
             OrderDate: order.OrderDate,
             TotalPrice: order.TotalPrice,
-            DeliveryFee: order.DeliveryFee,
-            CourierFee: order.CourierFee,
-            CourierPaid: order.CourierPaid,
             OrderStatus: order.OrderStatus.ToString(),
             Profit: order.Profit,
             dishes: dishDtos,
             DeliveredById: order.DeliveredById,
             CourierName: courier != null ? $"{courier.Name} {courier.Surname}" : null,
-            CourierPhoneNumber: courier?.PhoneNumber
+            CourierPhoneNumber: courier?.PhoneNumber,
+            DeliverFromId: order.DeliverFromId,
+            DeliverToId: order.DeliverToId
         );
     }
+
 
     public async Task<IEnumerable<BusinessOrderResponse>> GetAllByBusinessIdAsync(Guid businessId)
     {
         var orders = (await orderRepository.GetOrdersByBusinessIdAsync(businessId))
-            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
+            .Where(o => o.OrderStatus != OrderStatus.Canceled)
             .ToList();
 
         if (!orders.Any())
@@ -217,25 +219,51 @@ public class OrderService(
             .Distinct()
             .ToDictionary(
                 id => id,
-                id => userServiceRpcClient.GetCourierAccountAsync(new GetCourierAccountRequest(id))
+                id => userServiceRpcClient.GetCourierAccountAsync(
+                    new GetCourierAccountRequest(id))
             );
 
-        var locationTasks = orders.ToDictionary(
-            o => o.Id,
-            o => trackingServiceRpcClient.GetLocationsAsync(
-                new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
-        );
+        var customerTasks = orders
+            .Select(o => o.OrderedBy)
+            .Distinct()
+            .ToDictionary(
+                id => id,
+                id => userServiceRpcClient.GetCustomerAccountAsync(
+                    new GetCustomerAccountRequest(id))
+            );
+
+        var locationTasks = orders
+            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
+            .ToDictionary(
+                o => o.Id,
+                o => trackingServiceRpcClient.GetLocationsAsync(
+                    new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
+            );
 
         var allTasks = courierTasks.Values
             .Select(t => (Task)t)
+            .Concat(customerTasks.Values.Select(t => (Task)t))
             .Concat(locationTasks.Values.Select(t => (Task)t))
             .Append(businessTask);
 
         await Task.WhenAll(allTasks);
 
         var business = await businessTask;
-        var couriers = courierTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
+
+        var couriers = courierTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
+
+        var customers = customerTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
+
+        var locations = locationTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
 
         var responses = new List<BusinessOrderResponse>();
 
@@ -245,14 +273,20 @@ public class OrderService(
                 ? couriers.GetValueOrDefault(o.DeliveredById.Value)
                 : null;
 
-            var location = locations[o.Id];
+            var customer = customers[o.OrderedBy];
+
+            var customerAddress = "—";
+            if (locations.TryGetValue(o.Id, out var location) && location?.DeliverTo != null)
+                customerAddress = location.DeliverTo.FullAddress;
+
             var orderedDishes = await orderDishRepository.GetOrderDishesByOrderId(o.Id);
 
             var dishResponses = new List<DishResponse>();
 
             foreach (var od in orderedDishes)
             {
-                var dishInfo = await menuServiceRpcClient.GetDishAsync(new GetDishRequest(od.DishId));
+                var dishInfo = await menuServiceRpcClient.GetDishAsync(
+                    new GetDishRequest(od.DishId));
 
                 dishResponses.Add(new DishResponse(
                     Id: od.Id,
@@ -268,16 +302,14 @@ public class OrderService(
                 BusinessId: o.BusinessId,
                 BusinessName: business.Name,
                 OrderedBy: o.OrderedBy,
-                BusinessLocation: ToLocationResponse(location.DeliverFrom),
-                CustomerLocation: ToLocationResponse(location.DeliverTo),
-                CourierLocation: EmptyLocation(),
+                CustomerFullName: $"{customer.Name} {customer.Surname}",
+                CustomerAddress: customerAddress,
                 OrderDate: o.OrderDate,
                 TotalPrice: o.TotalPrice,
-                DeliveryFee: o.DeliveryFee,
-                CourierFee: o.CourierFee,
-                CourierPaid: o.CourierPaid,
                 DeliveredBy: o.DeliveredById ?? Guid.Empty,
-                CourierName: courier != null ? $"{courier.Name} {courier.Surname}" : string.Empty,
+                CourierName: courier != null
+                    ? $"{courier.Name} {courier.Surname}"
+                    : string.Empty,
                 OrderStatus: o.OrderStatus.ToString(),
                 dishes: dishResponses
             ));
@@ -286,6 +318,7 @@ public class OrderService(
         return responses;
     }
 
+    
     public async Task<IEnumerable<CustomerOrderResponse>> GetAllByCustomerIdAsync(Guid customerId)
     {
         var orders = (await orderRepository.GetOrdersByCustomerIdAsync(customerId))
@@ -295,65 +328,64 @@ public class OrderService(
         if (!orders.Any())
             return Enumerable.Empty<CustomerOrderResponse>();
 
+        // 1️⃣ Customer (один раз)
+        var customerTask = userServiceRpcClient.GetCustomerAccountAsync(
+            new GetCustomerAccountRequest(customerId)
+        );
+
+        // 2️⃣ Бізнеси (fan-out паралельно)
         var businessTasks = orders
             .Select(o => o.BusinessId)
             .Distinct()
             .ToDictionary(
                 id => id,
-                id => userServiceRpcClient.GetBusinessAccountAsync(new GetBusinessAccountRequest(id))
+                id => userServiceRpcClient.GetBusinessAccountAsync(
+                    new GetBusinessAccountRequest(id)
+                )
             );
 
+        // 3️⃣ Курʼєри (fan-out паралельно)
         var courierTasks = orders
             .Where(o => o.DeliveredById != null)
             .Select(o => o.DeliveredById!.Value)
             .Distinct()
             .ToDictionary(
                 id => id,
-                id => userServiceRpcClient.GetCourierAccountAsync(new GetCourierAccountRequest(id))
-            );
-
-        var businessLocationTasks = orders
-            .Where(o => o.DeliverFromId.HasValue)
-            .ToDictionary(
-                o => o.Id,
-                o => GetPrimaryBusinessLocationAsync(
-                    o.BusinessId,
-                    o.DeliverFromId!.Value
+                id => userServiceRpcClient.GetCourierAccountAsync(
+                    new GetCourierAccountRequest(id)
                 )
             );
 
-        var locationTasks = orders
-            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
-            .ToDictionary(
-                o => o.Id,
-                o => trackingServiceRpcClient.GetLocationsAsync(
-                    new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
-            );
+        await Task.WhenAll(
+            businessTasks.Values
+                .Concat<Task>(courierTasks.Values)
+                .Append(customerTask)
+        );
 
-        var allTasks = businessTasks.Values
-            .Select(t => (Task)t)
-            .Concat(courierTasks.Values.Select(t => (Task)t))
-            .Concat(businessLocationTasks.Values.Select(t => (Task)t))
-            .Concat(locationTasks.Values.Select(t => (Task)t));
+        var customer = await customerTask;
 
-        await Task.WhenAll(allTasks);
+        // 4️⃣ Dictionaries для швидкого доступу
+        var businesses = businessTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
 
-        var businesses = businessTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var couriers = courierTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var businessLocations = businessLocationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
+        var couriers = courierTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
 
+        // 5️⃣ DTO generation з отриманням страв
         var responses = new List<CustomerOrderResponse>();
 
         foreach (var order in orders)
         {
             var business = businesses[order.BusinessId];
-            var businessLocation = businessLocations.GetValueOrDefault(order.Id);
-            var location = locations.GetValueOrDefault(order.Id);
             var courier = order.DeliveredById != null
                 ? couriers.GetValueOrDefault(order.DeliveredById.Value)
                 : null;
 
+            // 🔑 Отримуємо OrderedDishes для цього ордера
             var orderedDishes = await orderDishRepository.GetOrderDishesByOrderId(order.Id);
 
             var dishResponses = new List<DishResponse>();
@@ -374,17 +406,14 @@ public class OrderService(
                 Id: order.Id,
                 BusinessId: order.BusinessId,
                 BusinessName: business.Name,
-                BusinessLocation: ToLocationResponse(businessLocation),
-                CustomerLocation: ToLocationResponse(location?.DeliverTo),
-                CourierLocation: EmptyLocation(),
+                BusinessAddress: business.Adresses.FirstOrDefault() ?? string.Empty,
                 OrderedBy: order.OrderedBy,
                 OrderDate: order.OrderDate,
                 TotalPrice: order.TotalPrice,
-                DeliveryFee: order.DeliveryFee,
-                CourierFee: order.CourierFee,
-                CourierPaid: order.CourierPaid,
                 DeliveredBy: order.DeliveredById ?? Guid.Empty,
-                CourierName: courier != null ? $"{courier.Name} {courier.Surname}" : string.Empty,
+                CourierName: courier != null
+                    ? $"{courier.Name} {courier.Surname}"
+                    : string.Empty,
                 OrderStatus: order.OrderStatus.ToString(),
                 dishes: dishResponses
             ));
@@ -393,45 +422,89 @@ public class OrderService(
         return responses;
     }
 
+    
     public async Task<IEnumerable<CourierOrderResponse>> GetAllByCourierIdAsync(Guid courierId)
     {
         var orders = (await orderRepository.GetAll())
-            .Where(o =>
-                o.OrderStatus == OrderStatus.Ready
+            .Where(o => 
+                o.OrderStatus != OrderStatus.Canceled 
+                && o.OrderStatus != OrderStatus.Delivered
                 && o.DeliveredById == null
                 && o.DeliverToId.HasValue
                 && o.DeliverFromId.HasValue)
             .ToList();
 
+
+
         if (!orders.Any())
             return Enumerable.Empty<CourierOrderResponse>();
 
+        // 1️⃣ Courier (сам курʼєр)
+        var courierTask = userServiceRpcClient.GetCourierAccountAsync(
+            new GetCourierAccountRequest(courierId));
+
+        // 2️⃣ Businesses
         var businessTasks = orders
             .Select(o => o.BusinessId)
             .Distinct()
             .ToDictionary(
                 id => id,
-                id => userServiceRpcClient.GetBusinessAccountAsync(new GetBusinessAccountRequest(id))
+                id => userServiceRpcClient.GetBusinessAccountAsync(
+                    new GetBusinessAccountRequest(id))
             );
 
+        // 3️⃣ Customers (OrderedBy)
+        var customerTasks = orders
+            .Select(o => o.OrderedBy)
+            .Distinct()
+            .ToDictionary(
+                id => id,
+                id => userServiceRpcClient.GetCustomerAccountAsync(
+                    new GetCustomerAccountRequest(id))
+            );
+
+        // 3️⃣ Locations (DeliverTo / DeliverFrom)
         var locationTasks = orders.ToDictionary(
             o => o.Id,
             o => trackingServiceRpcClient.GetLocationsAsync(
-                new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
+                new GetLocationRequest(o.DeliverToId.Value, o.DeliverFromId.Value))
         );
 
+        
+        // 4️⃣ Await ALL
         var allTasks = businessTasks.Values
             .Select(t => (Task)t)
-            .Concat(locationTasks.Values.Select(t => (Task)t));
+            .Concat(customerTasks.Values.Select(t => (Task)t))
+            .Concat(locationTasks.Values.Select(t => (Task)t))
+            .Append(courierTask);
 
         await Task.WhenAll(allTasks);
 
-        var businesses = businessTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
 
+        // 5️⃣ Collect results
+        var courier = await courierTask;
+
+        var businesses = businessTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
+
+        var customers = customerTasks.ToDictionary(
+            x => x.Key,
+            x => x.Value.Result
+        );
+        
+        var locations = locationTasks.ToDictionary(
+            x => x.Key,          // OrderId
+            x => x.Value.Result  // GetLocationsResponse
+        );
+
+
+        // 6️⃣ Map
         return orders.Select(o =>
         {
             var business = businesses[o.BusinessId];
+            var customer = customers[o.OrderedBy];
             var location = locations[o.Id];
 
             return new CourierOrderResponse(
@@ -439,78 +512,19 @@ public class OrderService(
                 BusinessId: o.BusinessId,
                 BusinessName: business.Name,
                 OrderedBy: o.OrderedBy,
-                BusinessLocation: ToLocationResponse(location.DeliverFrom),
-                CustomerLocation: ToLocationResponse(location.DeliverTo),
-                CourierLocation: EmptyLocation(),
+                CustomerFullName: $"{customer.Name} {customer.Surname}",
+
+                // 🔥 ОСЬ ТУТ ПРАВИЛЬНО
+                CustomerAddress: location.DeliverTo.FullAddress,
+
+                CustomerPhoneNumber: customer.PhoneNumber,
                 OrderDate: o.OrderDate,
                 TotalPrice: o.TotalPrice,
-                DeliveryFee: o.DeliveryFee,
-                CourierFee: o.CourierFee,
-                CourierPaid: o.CourierPaid,
                 OrderStatus: o.OrderStatus.ToString(),
                 Profit: o.Profit
             );
         });
-    }
 
-    public async Task<IEnumerable<CourierOrderResponse>> GetActiveByCourierIdAsync(Guid courierId)
-    {
-        var orders = (await orderRepository.GetOrdersByCourierIdAsync(courierId))
-            .Where(o =>
-                o.OrderStatus != OrderStatus.Canceled
-                && o.OrderStatus != OrderStatus.Delivered
-                && o.DeliverToId.HasValue
-                && o.DeliverFromId.HasValue)
-            .ToList();
-
-        if (!orders.Any())
-            return Enumerable.Empty<CourierOrderResponse>();
-
-        var businessTasks = orders
-            .Select(o => o.BusinessId)
-            .Distinct()
-            .ToDictionary(
-                id => id,
-                id => userServiceRpcClient.GetBusinessAccountAsync(new GetBusinessAccountRequest(id))
-            );
-
-        var locationTasks = orders.ToDictionary(
-            o => o.Id,
-            o => trackingServiceRpcClient.GetLocationsAsync(
-                new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
-        );
-
-        var allTasks = businessTasks.Values
-            .Select(t => (Task)t)
-            .Concat(locationTasks.Values.Select(t => (Task)t));
-
-        await Task.WhenAll(allTasks);
-
-        var businesses = businessTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-
-        return orders.Select(o =>
-        {
-            var business = businesses[o.BusinessId];
-            var location = locations[o.Id];
-
-            return new CourierOrderResponse(
-                Id: o.Id,
-                BusinessId: o.BusinessId,
-                BusinessName: business.Name,
-                OrderedBy: o.OrderedBy,
-                BusinessLocation: ToLocationResponse(location.DeliverFrom),
-                CustomerLocation: ToLocationResponse(location.DeliverTo),
-                CourierLocation: EmptyLocation(),
-                OrderDate: o.OrderDate,
-                TotalPrice: o.TotalPrice,
-                DeliveryFee: o.DeliveryFee,
-                CourierFee: o.CourierFee,
-                CourierPaid: o.CourierPaid,
-                OrderStatus: o.OrderStatus.ToString(),
-                Profit: o.Profit
-            );
-        });
     }
 
     public async Task<IEnumerable<CustomerOrderResponse>> GetCustomerOrderHistoryAsync(Guid customerId)
@@ -522,6 +536,8 @@ public class OrderService(
         if (!orders.Any())
             return Enumerable.Empty<CustomerOrderResponse>();
 
+        var customerTask = userServiceRpcClient.GetCustomerAccountAsync(new GetCustomerAccountRequest(customerId));
+
         var businessTasks = orders
             .Select(o => o.BusinessId)
             .Distinct()
@@ -538,49 +554,21 @@ public class OrderService(
                 id => id,
                 id => userServiceRpcClient.GetCourierAccountAsync(new GetCourierAccountRequest(id))
             );
-        
-        var businessLocationTasks = orders
-            .Where(o => o.DeliverFromId.HasValue)
-            .ToDictionary(
-                o => o.Id,
-                o => GetPrimaryBusinessLocationAsync(
-                    o.BusinessId,
-                    o.DeliverFromId!.Value
-                )
-            );
 
-        var locationTasks = orders
-            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
-            .ToDictionary(
-                o => o.Id,
-                o => trackingServiceRpcClient.GetLocationsAsync(
-                    new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
-            );
+        await Task.WhenAll(businessTasks.Values.Concat<Task>(courierTasks.Values).Append(customerTask));
 
-        var allTasks = businessTasks.Values
-            .Select(t => (Task)t)
-            .Concat(courierTasks.Values.Select(t => (Task)t))
-            .Concat(businessLocationTasks.Values.Select(t => (Task)t))
-            .Concat(locationTasks.Values.Select(t => (Task)t));
-
-        await Task.WhenAll(allTasks);
-
+        var customer = await customerTask;
         var businesses = businessTasks.ToDictionary(x => x.Key, x => x.Value.Result);
         var couriers = courierTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var businessLocations = businessLocationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
 
         var responses = new List<CustomerOrderResponse>();
 
         foreach (var order in orders)
         {
             var business = businesses[order.BusinessId];
-            var businessLocation = businessLocations.GetValueOrDefault(order.Id);
-            var location = locations.GetValueOrDefault(order.Id);
-            var courier = order.DeliveredById != null
-                ? couriers.GetValueOrDefault(order.DeliveredById.Value)
-                : null;
+            var courier = order.DeliveredById != null ? couriers.GetValueOrDefault(order.DeliveredById.Value) : null;
 
+            // 🔑 Отримуємо OrderedDishes для цього ордера
             var orderedDishes = await orderDishRepository.GetOrderDishesByOrderId(order.Id);
 
             var dishResponses = new List<DishResponse>();
@@ -601,15 +589,10 @@ public class OrderService(
                 Id: order.Id,
                 BusinessId: order.BusinessId,
                 BusinessName: business.Name,
-                BusinessLocation: ToLocationResponse(businessLocation),
-                CustomerLocation: ToLocationResponse(location?.DeliverTo),
-                CourierLocation: EmptyLocation(),
+                BusinessAddress: business.Adresses.FirstOrDefault() ?? string.Empty,
                 OrderedBy: order.OrderedBy,
                 OrderDate: order.OrderDate,
                 TotalPrice: order.TotalPrice,
-                DeliveryFee: order.DeliveryFee,
-                CourierFee: order.CourierFee,
-                CourierPaid: order.CourierPaid,
                 DeliveredBy: order.DeliveredById ?? Guid.Empty,
                 CourierName: courier != null ? $"{courier.Name} {courier.Surname}" : string.Empty,
                 OrderStatus: order.OrderStatus.ToString(),
@@ -619,6 +602,7 @@ public class OrderService(
 
         return responses;
     }
+
 
     public async Task<IEnumerable<CourierOrderResponse>> GetCourierOrderHistoryAsync(Guid courierId)
     {
@@ -639,83 +623,55 @@ public class OrderService(
                 id => userServiceRpcClient.GetBusinessAccountAsync(new GetBusinessAccountRequest(id))
             );
 
-        var locationTasks = orders
-            .Where(o => o.DeliverToId.HasValue && o.DeliverFromId.HasValue)
+        var customerTasks = orders
+            .Select(o => o.OrderedBy)
+            .Distinct()
             .ToDictionary(
-                o => o.Id,
-                o => trackingServiceRpcClient.GetLocationsAsync(
-                    new GetLocationRequest(o.DeliverToId!.Value, o.DeliverFromId!.Value))
+                id => id,
+                id => userServiceRpcClient.GetCustomerAccountAsync(new GetCustomerAccountRequest(id))
             );
 
         var allTasks = businessTasks.Values.Select(t => (Task)t)
-            .Concat(locationTasks.Values.Select(t => (Task)t))
+            .Concat(customerTasks.Values.Select(t => (Task)t))
             .Append(courierTask);
 
         await Task.WhenAll(allTasks);
 
+        var courier = await courierTask;
         var businesses = businessTasks.ToDictionary(x => x.Key, x => x.Value.Result);
-        var locations = locationTasks.ToDictionary(x => x.Key, x => x.Value.Result);
+        var customers = customerTasks.ToDictionary(x => x.Key, x => x.Value.Result);
 
         return orders.Select(o =>
         {
             var business = businesses[o.BusinessId];
-            var location = locations.GetValueOrDefault(o.Id);
+            var customer = customers[o.OrderedBy];
 
             return new CourierOrderResponse(
                 Id: o.Id,
                 BusinessId: o.BusinessId,
                 BusinessName: business.Name,
                 OrderedBy: o.OrderedBy,
-                BusinessLocation: ToLocationResponse(location?.DeliverFrom),
-                CustomerLocation: ToLocationResponse(location?.DeliverTo),
-                CourierLocation: EmptyLocation(),
+                CustomerFullName: $"{customer.Name} {customer.Surname}",
+                CustomerAddress: customer.Address,
+                CustomerPhoneNumber: customer.PhoneNumber,
                 OrderDate: o.OrderDate,
                 TotalPrice: o.TotalPrice,
-                DeliveryFee: o.DeliveryFee,
-                CourierFee: o.CourierFee,
-                CourierPaid: o.CourierPaid,
                 OrderStatus: o.OrderStatus.ToString(),
                 Profit: o.Profit
             );
         });
     }
-
-    public async Task<OrderResponse> ChangeOrderStatus(Guid orderId, DF.Contracts.Enums.OrderStatus status)
+    
+    public async Task<OrderResponse> ChangeOrderStatus(Guid orderId, OrderStatus status)
     {
         var order = await orderRepository.Get(orderId)
                     ?? throw new InvalidOperationException($"Order {orderId} not found");
 
-        var shouldPublishDeliveredEvent =
-            status == DF.Contracts.Enums.OrderStatus.Delivered
-            && order.OrderStatus != OrderStatus.Delivered;
-
-        if (shouldPublishDeliveredEvent && order.DeliveredById is null)
-            throw new InvalidOperationException("Cannot mark order as delivered without assigned courier.");
-
-        order.OrderStatus = status.ToDomain();
+        order.OrderStatus = status;
         await orderRepository.Update(order);
+
         var business = await userServiceRpcClient.GetBusinessAccountAsync(
             new GetBusinessAccountRequest(order.BusinessId));
-
-        if (order.OrderStatus == OrderStatus.Canceled)
-        {
-            await eventPublisher.PublishOrderCanceledEvent(
-                new OrderCancelledEvent(orderId, order.PaymentMethod.ToString()));
-        }
-
-        if (shouldPublishDeliveredEvent
-            && order.DeliveredById.HasValue
-            && !order.CourierPaid
-            && order.CourierFee > 0)
-        {
-            await eventPublisher.PublishOrderDeliveredEvent(
-                new OrderDeliveredEvent(
-                    OrderId: order.Id,
-                    CourierId: order.DeliveredById.Value,
-                    CourierFee: order.CourierFee,
-                    Currency: "usd",
-                    DeliveredAtUtc: DateTime.UtcNow));
-        }
 
         return new OrderResponse(
             Id: order.Id,
@@ -723,123 +679,37 @@ public class OrderService(
             BusinessName: business.Name,
             OrderedBy: order.OrderedBy,
             OrderDate: order.OrderDate,
-            TotalPrice: order.TotalPrice,
-            DeliveryFee: order.DeliveryFee,
-            CourierFee: order.CourierFee,
-            CourierPaid: order.CourierPaid
+            TotalPrice: order.TotalPrice
         );
     }
 
     public async Task<OrderResponse> DeliverOrderAsync(Guid orderId, Guid courierId)
     {
         var order = await orderRepository.Get(orderId);
-
-        if (order is null)
+        
+        if(order is null)
             throw new InvalidOperationException($"Order {orderId} not found");
-
+        
         order.DeliveredById = courierId;
-        order.OrderStatus = OrderStatus.OutForDelivery;
-
+        order.OrderStatus  = OrderStatus.OutForDelivery;
+        
         await orderRepository.Update(order);
-
-        var business = await userServiceRpcClient.GetBusinessAccountAsync(
-            new GetBusinessAccountRequest(order.BusinessId));
-
-        return new OrderResponse(
-            Id: order.Id,
-            BusinessId: order.BusinessId,
-            BusinessName: business.Name,
-            OrderedBy: order.OrderedBy,
+        
+        var business = await userServiceRpcClient.GetBusinessAccountAsync( new GetBusinessAccountRequest(order.BusinessId));
+        
+        return new OrderResponse( 
+            Id: order.Id, 
+            BusinessId: 
+            order.BusinessId, 
+            BusinessName: business.Name, 
+            OrderedBy: order.OrderedBy, 
             OrderDate: order.OrderDate,
-            TotalPrice: order.TotalPrice,
-            DeliveryFee: order.DeliveryFee,
-            CourierFee: order.CourierFee,
-            CourierPaid: order.CourierPaid
-        );
+            TotalPrice: order.TotalPrice
+            );
     }
-
-    public async Task<bool> CancelOrderAsync(Guid orderId)
-    {
-        var order = await orderRepository.Get(orderId)
-                    ?? throw new InvalidOperationException($"Order {orderId} not found");
-
-        order.OrderStatus = OrderStatus.Canceled;
-        await orderRepository.Update(order);
-        await eventPublisher.PublishOrderCanceledEvent(
-            new OrderCancelledEvent(orderId, order.PaymentMethod.ToString()));
-
-        return true;
-    }
-
+    
     private static string GenerateOrderNumber()
     {
         return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString()[..8]}";
-    }
-
-    private async Task<GetBusinessLocationResponse?> GetPrimaryBusinessLocationAsync(Guid businessId, Guid locationId)
-    {
-        try
-        {
-            var response = await trackingServiceRpcClient.GetBusinessLocationsAsync(
-                new GetBusinessLocationsRequest(businessId));
-
-            if (response.BusinessLocations.Any(bl => bl.LocationId == new Guid("019d5e76-5d41-7e9f-addd-dcdb4ae63862")))
-            {
-                
-            }
-            
-            return response.BusinessLocations.FirstOrDefault(bl => bl.LocationId == locationId);
-        }
-        catch (TimeoutException)
-        {
-            return null;
-        }
-    }
-
-    private static LocationResponse ToLocationResponse(GetBusinessLocationResponse? location)
-    {
-        if (location is null)
-            return EmptyLocation();
-        
-        if(location.LocationId == new Guid("019d5e76-5d41-7e9f-addd-dcdb4ae63862"))
-        {
-            
-        }
-        
-        return new LocationResponse(
-            FullAddress: location.FullAddress,
-            City: location.City,
-            Street: location.Street,
-            House: location.House,
-            Latitude: location.Latitude.ToString(CultureInfo.InvariantCulture),
-            Longitude: location.Longitude.ToString(CultureInfo.InvariantCulture)
-        );
-    }
-
-    private static LocationResponse ToLocationResponse(dynamic? location)
-    {
-        if (location is null)
-            return EmptyLocation();
-
-        return new LocationResponse(
-            FullAddress: location.FullAddress ?? string.Empty,
-            City: location.City ?? string.Empty,
-            Street: location.Street ?? string.Empty,
-            House: location.House ?? string.Empty,
-            Latitude: location.Latitude.ToString(CultureInfo.InvariantCulture),
-            Longitude: location.Longitude.ToString(CultureInfo.InvariantCulture)
-        );
-    }
-
-    private static LocationResponse EmptyLocation()
-    {
-        return new LocationResponse(
-            FullAddress: string.Empty,
-            City: string.Empty,
-            Street: string.Empty,
-            House: string.Empty,
-            Latitude: string.Empty,
-            Longitude: string.Empty
-        );
     }
 }

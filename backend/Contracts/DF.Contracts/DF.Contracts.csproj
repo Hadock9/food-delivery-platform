@@ -5,11 +5,11 @@
         <Nullable>enable</Nullable>
 
         <PackageId>DF.Contracts</PackageId>
-        <Version>1.0.1-pre-release8</Version>
-        <Authors>Rostyslav</Authors>
+        <Version>1.0.2-preview</Version>
+        <Authors>Vladyslav</Authors>
         <PackageDescription>Shared contracts for DF microservices</PackageDescription>
 
-        <RepositoryUrl>https://github.com/rostyslav/food-delivery-platform</RepositoryUrl>
+        <RepositoryUrl>https://github.com/vladyslavdrohomeretskyi/Contracts</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
 
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -20,22 +20,6 @@
 
     <ItemGroup>
       <Folder Include="RPC\" />
-        <Folder Include="RPC\Requests" />
-        <Folder Include="RPC\Responses" />
-        <Folder Include="RPC\Requests\MenuService" />
-        <Folder Include="RPC\Requests\TrackingService" />
-        <Folder Include="RPC\Requests\UserService" />
-        <Folder Include="RPC\Responses\MenuService" />
-        <Folder Include="RPC\Responses\TrackingService" />
-        <Folder Include="RPC\Responses\UserService" />
-    </ItemGroup>
-    <ItemGroup>
-        <Folder Include="Gateway\" />
-        <Folder Include="RPC\Requests\Accounts" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.9" />
     </ItemGroup>
     
 </Project>

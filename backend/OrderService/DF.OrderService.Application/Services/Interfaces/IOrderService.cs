@@ -1,6 +1,7 @@
-﻿using DF.Contracts.Enums;
-using DF.Contracts.Gateway.Requests.Order;
-using DF.Contracts.Gateway.Responses.Order;
+﻿using DF.OrderService.Contracts.Models.Requests;
+using DF.OrderService.Contracts.Models.Responses;
+using DF.OrderService.Domain.Entities;
+
 namespace DF.OrderService.Application.Services.Interfaces;
 
 public interface IOrderService
@@ -12,11 +13,8 @@ public interface IOrderService
     Task<IEnumerable<BusinessOrderResponse>> GetAllByBusinessIdAsync(Guid businessId);
     Task<IEnumerable<CustomerOrderResponse>> GetAllByCustomerIdAsync(Guid customerId);
     Task<IEnumerable<CourierOrderResponse>> GetAllByCourierIdAsync(Guid courierId);
-    Task<IEnumerable<CourierOrderResponse>> GetActiveByCourierIdAsync(Guid courierId);
     Task<IEnumerable<CustomerOrderResponse>> GetCustomerOrderHistoryAsync(Guid customerId);
     Task<IEnumerable<CourierOrderResponse>> GetCourierOrderHistoryAsync(Guid courierId);
     Task<OrderResponse> ChangeOrderStatus(Guid orderId,  OrderStatus status);
     Task<OrderResponse> DeliverOrderAsync(Guid orderId, Guid courierId);
-    
-    Task<bool> CancelOrderAsync(Guid orderId);
 }

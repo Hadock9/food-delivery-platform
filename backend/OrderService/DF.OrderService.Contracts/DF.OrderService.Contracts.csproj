@@ -1,13 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\DF.OrderService.Domain\DF.OrderService.Domain.csproj" />
+      <ProjectReference Include="..\..\Contracts\DF.Contracts\DF.Contracts.csproj" />
     </ItemGroup>
 
 </Project>

@@ -1,117 +1,129 @@
-﻿using DF.Contracts.Gateway.Requests.Accounts;
-using DF.Contracts.Gateway.Responses;
-using DF.UserService.API.Middlewares;
+﻿using System.Security.Claims;
+using System.Linq;
 using DF.UserService.Application.Services.Interfaces;
+using DF.UserService.Contracts.Models.DTO;
+using DF.UserService.Contracts.Models.Request;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DF.UserService.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class AccountController(IAccountService accountService, IUserContext userContext) : ControllerBase
+public class AccountController(IAccountService accountService) : ControllerBase
 {
+    /// <summary>
+    /// Get account by userId
+    /// </summary>
     [HttpGet("{userId:guid}")]
     public async Task<ActionResult<AccountResponse>> GetAccount(Guid userId)
     {
-        var account = await accountService.GetAccountByUserAsync(userId)
-                      ?? throw new NullReferenceException("Account not found");
+        var account = await accountService.GetAccountByUserAsync(userId);
+
+        if (account == null)
+            return NotFound($"Account for user {userId} not found.");
 
         return Ok(account);
     }
 
+    /// <summary>
+    /// Get accounts by userId
+    /// </summary>
     [HttpGet("all/{userId:guid}")]
     public async Task<ActionResult<IEnumerable<AccountResponse>>> GetAccounts(Guid userId)
     {
         var accounts = await accountService.GetAccountsByUserAsync(userId);
+
         return Ok(accounts);
     }
 
+    /// <summary>Публічний каталог закладів для гостей і клієнтів.</summary>
+    [AllowAnonymous]
     [HttpGet("all/business")]
-    public async Task<ActionResult<IEnumerable<AccountResponse>>> GetAllBusinessAccounts()
+    public async Task<IActionResult> GetAllBusinessAccounts()
     {
         var result = await accountService.GetBusinessAccountsAsync();
 
         if (result == null || !result.Any())
-            throw new NullReferenceException("No business accounts found");
+            return Ok(Array.Empty<AccountResponse>());
 
         return Ok(result);
     }
 
     [HttpPost("courier")]
-    public async Task<ActionResult<AccountResponse>> CreateCourierAccount(
-        [FromForm] CreateCourierAccountRequest request)
-        => await CreateAccount(request);
-
-    [HttpPost("customer")]
-    public async Task<ActionResult<AccountResponse>> CreateCustomerAccount(
-        [FromForm] CreateCustomerAccountRequest request)
-        => await CreateAccount(request);
-
-    [HttpPost("business")]
-    public async Task<ActionResult<AccountResponse>> CreateBusinessAccount(
-        [FromForm] CreateBusinessAccountRequest request)
-        => await CreateAccount(request);
-
-    private async Task<ActionResult<AccountResponse>> CreateAccount(CreateAccountRequest request)
+    public async Task<ActionResult<AccountResponse>> CreateCourierAccount([FromForm] CreateCourierAccountRequest request)
     {
-        var userId = userContext.UserId;
-
-        if (userId == Guid.Empty)
-            throw new UnauthorizedAccessException("User is not authorized");
-
-        var created = await accountService.CreateAccountAsync(request, userId);
-        return Ok(created);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null)
+            return Unauthorized("User ID not found in token");
+        
+        var created = await accountService.CreateAccountAsync(request, Guid.Parse(userIdClaim.Value));
+        return CreatedAtAction(nameof(GetAccount), new { userId = created.UserId }, created);
     }
 
-    [HttpPut("customer")]
-    public async Task<ActionResult<AccountResponse>> UpdateCustomer(
-        [FromForm] UpdateCustomerAccountRequest request)
-        => await UpdateAccount(request);
-
-    [HttpPut("business")]
-    public async Task<ActionResult<AccountResponse>> UpdateBusiness(
-        [FromForm] UpdateBusinessAccountRequest request)
-        => await UpdateAccount(request);
-
-    [HttpPut("courier")]
-    public async Task<ActionResult<AccountResponse>> UpdateCourier(
-        [FromForm] UpdateCourierAccountRequest request)
-        => await UpdateAccount(request);
-
-    private async Task<ActionResult<AccountResponse>> UpdateAccount(UpdateAccountRequest request)
+    [HttpPost("customer")]
+    public async Task<ActionResult<AccountResponse>> CreateCustomerAccount([FromForm] CreateCustomerAccountRequest request)
     {
-        var userId = userContext.UserId;
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null)
+            return Unauthorized("User ID not found in token");
 
-        if (userId == Guid.Empty)
-            throw new UnauthorizedAccessException("User is not authorized");
 
-        request = request with { UserId = userId.ToString() };
+        var created = await accountService.CreateAccountAsync(request, Guid.Parse(userIdClaim.Value));
+        return CreatedAtAction(nameof(GetAccount), new { userId = created.UserId }, created);
+    }
 
+    [HttpPost("business")]
+    public async Task<ActionResult<AccountResponse>> CreateBusinessAccount([FromForm] CreateBusinessAccountRequest request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null)
+            return Unauthorized("User ID not found in token");
+
+
+        var created = await accountService.CreateAccountAsync(request, Guid.Parse(userIdClaim.Value));
+        return CreatedAtAction(nameof(GetAccount), new { userId = created.UserId }, created);
+    }
+
+
+    
+    [HttpPut("customer")]
+    public async Task<ActionResult<AccountResponse>> UpdateCustomer([FromForm] UpdateCustomerAccountRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        request = request with { UserId = userId };
         var updated = await accountService.UpdateAccountAsync(request);
         return Ok(updated);
     }
 
+    [HttpPut("business")]
+    public async Task<ActionResult<AccountResponse>> UpdateBusiness([FromForm] UpdateBusinessAccountRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        request = request with { UserId = userId };
+        var updated = await accountService.UpdateAccountAsync(request);
+        return Ok(updated);
+    }
+    
+    [HttpPut("courier")]
+    public async Task<ActionResult<AccountResponse>> UpdateCourier([FromForm] UpdateCourierAccountRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        request = request with { UserId = userId };
+        var updated = await accountService.UpdateAccountAsync(request);
+        return Ok(updated);
+    }
+    
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> DeleteAccount(Guid id)
     {
-        var deleted = await accountService.DeleteAccountAsync(id);
+        var result = await accountService.DeleteAccountAsync(id);
 
-        if (!deleted)
-            throw new NullReferenceException("Account not found");
+        if (!result)
+            return NotFound($"Account with id {id} not found.");
 
         return NoContent();
     }
 
-    [HttpGet("onboarding/{businessId:guid}")]
-    public async Task<ActionResult<string>> GetOnboardingLink(Guid businessId)
-    {
-        var link = await accountService.GetOnboardingLinkAsync(
-            businessId,
-            CancellationToken.None);
-
-        if (string.IsNullOrEmpty(link))
-            throw new NullReferenceException("Onboarding link not found");
-
-        return Ok(link);
-    }
 }

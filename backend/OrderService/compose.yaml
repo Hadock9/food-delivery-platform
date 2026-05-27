@@ -1,18 +1,22 @@
-﻿version: '3.9'
-
 services:
   df.orderservice.api:
     image: df.orderservice.api
     build:
-      context: ..
-      dockerfile: OrderService/DF.OrderService.API/Dockerfile
+      context: .
+      dockerfile: DF.OrderService.API/Dockerfile
     container_name: df.orderservice.api
     ports:
-      - "5005:8090"
+      - "5005:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=df.orderservice.db;Port=5432;Database=OrderServiceDb;Username=OrderService;Password=OrderService2025!
       RabbitMQ__HostName: rabbitmq
+      RabbitMQ__UserName: guest
+      RabbitMQ__Password: guest
+      RabbitMQ__Port: "5672"
+      Jwt__Key: food-delivery-platform-jwt-key-1234567890!
+      Jwt__Issuer: df.userservice
+      Jwt__Audience: df.userservice.client
     depends_on:
       - df.orderservice.db
     networks:
@@ -37,4 +41,5 @@ volumes:
 
 networks:
   df-network:
+    name: df-platform
     external: true

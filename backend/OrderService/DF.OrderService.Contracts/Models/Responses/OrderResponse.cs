@@ -1,4 +1,7 @@
-﻿namespace DF.OrderService.Contracts.Models.Responses;
+﻿using DF.Contracts.RPC.Responses.UserService;
+using DF.OrderService.Domain.Entities;
+
+namespace DF.OrderService.Contracts.Models.Responses;
 
 public record OrderResponse(
     Guid Id,
@@ -6,66 +9,51 @@ public record OrderResponse(
     string BusinessName,
     Guid OrderedBy,
     DateTime OrderDate,
-    decimal TotalPrice,
-    decimal DeliveryFee,
-    decimal CourierFee,
-    bool CourierPaid
+    decimal TotalPrice
     );
 
 public record CustomerOrderResponse(
     Guid Id,
     Guid BusinessId,
     string BusinessName,
-    LocationResponse BusinessLocation,
-    LocationResponse CustomerLocation,
-    LocationResponse CourierLocation,
+    string BusinessAddress,
     Guid OrderedBy,
     DateTime OrderDate,
     decimal TotalPrice,
-    decimal DeliveryFee,
-    decimal CourierFee,
-    bool CourierPaid,
     Guid DeliveredBy,
     string CourierName,
     string OrderStatus,
     List<DishResponse> dishes
-) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice, DeliveryFee, CourierFee, CourierPaid);
+) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice);
 
 public record BusinessOrderResponse(
     Guid Id,
     Guid BusinessId,
     string BusinessName,
     Guid OrderedBy,
-    LocationResponse BusinessLocation,
-    LocationResponse CustomerLocation,
-    LocationResponse CourierLocation,
+    string CustomerFullName,
+    string CustomerAddress,
     DateTime OrderDate,
     decimal TotalPrice,
-    decimal DeliveryFee,
-    decimal CourierFee,
-    bool CourierPaid,
     Guid DeliveredBy,
     string CourierName,
     string OrderStatus,
     List<DishResponse> dishes
-) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice, DeliveryFee, CourierFee, CourierPaid);
+) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice);
 
 public record CourierOrderResponse(
     Guid Id,
     Guid BusinessId,
     string BusinessName,
     Guid OrderedBy,
-    LocationResponse BusinessLocation,
-    LocationResponse CustomerLocation,
-    LocationResponse CourierLocation,
+    string CustomerFullName,
+    string CustomerAddress,
+    string CustomerPhoneNumber,
     DateTime OrderDate,
     decimal TotalPrice,
-    decimal DeliveryFee,
-    decimal CourierFee,
-    bool CourierPaid,
     string OrderStatus,
     decimal Profit
-) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice, DeliveryFee, CourierFee, CourierPaid);
+) : OrderResponse(Id, BusinessId, BusinessName, OrderedBy, OrderDate, TotalPrice);
 
 public record OrderDetailsResponse(
     Guid Id,
@@ -77,15 +65,14 @@ public record OrderDetailsResponse(
     string CustomerPhoneNumber,
     DateTime OrderDate,
     decimal TotalPrice,
-    decimal DeliveryFee,
-    decimal CourierFee,
-    bool CourierPaid,
     string OrderStatus,
     decimal Profit,
     List<DishResponse> dishes,
     Guid? DeliveredById,
     string? CourierName,
-    string? CourierPhoneNumber
+    string? CourierPhoneNumber,
+    Guid? DeliverFromId = null,
+    Guid? DeliverToId = null
     );
     
     public record DishResponse(

@@ -1,12 +1,10 @@
 ﻿using System.Text;
 using System.Text.Json;
 using DF.Contracts.EventDriven;
-using DF.OrderService.Application.Options;
 using DF.OrderService.Application.Repositories.Interfaces;
 using DF.OrderService.Application.Services;
 using DF.OrderService.Application.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -14,8 +12,7 @@ namespace DF.OrderService.Application.Messaging.Consumers;
 
 public class LocationsCreatedConsumer(
     IConnection connection,
-    IServiceScopeFactory scopeFactory,
-    IOptions<CourierCompensationOptions> courierCompensationOptions
+    IServiceScopeFactory scopeFactory
 ) : IConsumer
 {
     private const string ExchangeName = "trackingservice";
@@ -62,7 +59,10 @@ public class LocationsCreatedConsumer(
     private async Task HandleMessage(object sender, BasicDeliverEventArgs ea)
     {
         var json = Encoding.UTF8.GetString(ea.Body.ToArray());
-        var evt = JsonSerializer.Deserialize<LocationsCreatedForOrder>(json);
+        var evt = JsonSerializer.Deserialize<LocationsCreatedForOrder>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
 
         if (evt == null)
             return;
@@ -84,19 +84,11 @@ public class LocationsCreatedConsumer(
         if (order == null)
             return;
 
-        var deliveryFee = decimal.Round(
-            ProfitService.Calculate(order.TotalPrice, distanceKm),
-            2,
-            MidpointRounding.AwayFromZero);
-        var courierSharePercent = Math.Clamp(courierCompensationOptions.Value.CourierSharePercent, 0m, 1m);
-        var courierFee = decimal.Round(deliveryFee * courierSharePercent, 2, MidpointRounding.AwayFromZero);
+        var profit = ProfitService.Calculate(order.TotalPrice, distanceKm);
 
-        // ✅ Зберігаємо location IDs
         order.DeliverFromId = evt.DeliverFromId.Id;
         order.DeliverToId = evt.DeliverTo.Id;
-        order.DeliveryFee = deliveryFee;
-        order.CourierFee = courierFee;
-        order.Profit = deliveryFee;
+        order.Profit = profit;
 
         await orderRepository.Update(order);
     }

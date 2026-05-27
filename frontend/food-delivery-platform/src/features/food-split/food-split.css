@@ -1,0 +1,103 @@
+/* Tailwind-style utilities for Food Split */
+.fs-page {
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: radial-gradient(900px 400px at 10% 10%, rgba(124, 92, 255, 0.08), transparent 6%),
+    linear-gradient(180deg, #0b0f14, #0f1519);
+  color: #e6eef6;
+}
+
+.fs-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 12px 40px rgba(2, 6, 23, 0.5);
+}
+
+.fs-flex { display: flex; }
+.fs-flex-wrap { flex-wrap: wrap; }
+.fs-items-center { align-items: center; }
+.fs-justify-between { justify-content: space-between; }
+.fs-gap-2 { gap: 0.5rem; }
+.fs-gap-3 { gap: 0.75rem; }
+.fs-gap-4 { gap: 1rem; }
+.fs-grid { display: grid; }
+.fs-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.fs-text-sm { font-size: 0.875rem; }
+.fs-text-xs { font-size: 0.75rem; }
+.fs-text-muted { color: #97a0a9; }
+.fs-font-bold { font-weight: 700; }
+.fs-title { font-size: 1.5rem; font-weight: 700; background: linear-gradient(90deg, #7c5cff, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+.fs-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  background: linear-gradient(135deg, #7c5cff, #00d4ff);
+  color: #041021;
+}
+
+.fs-btn {
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.fs-btn-primary {
+  background: linear-gradient(90deg, #7c5cff, #ff6b6b);
+  color: #fff;
+}
+.fs-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e6eef6;
+}
+.fs-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fs-badge {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(124, 92, 255, 0.2);
+  color: #c4b5fd;
+}
+
+.fs-item-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.fs-total-box {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fs-share-highlight {
+  color: #00d4ff;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.fs-error {
+  color: #ffb4b4;
+  background: rgba(255, 107, 107, 0.12);
+  padding: 0.75rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .fs-grid-cols-2 { grid-template-columns: 1fr; }
+}
